@@ -9,15 +9,15 @@ export type QuestionCategory =
 export interface ChipOption {
   id: string;
   label: string;
-  groupTag?: string; // Uyum motoru için grup kodu
+  groupTag?: string;
 }
 
 export interface AdaptiveFollowUp {
-  triggerOptionIds: string[]; // Hangi ana cevaplar seçildiğinde bu alt soru açılır ('*' ise her zaman açılır)
+  triggerOptionIds: string[];
   id: string;
   title: string;
   subtitle?: string;
-  mode: 'single_select' | 'red_exclusion_multi'; // Normal seçim mi yoksa 3. fotoğraftaki kırmızı "Kesinlikle İstemem" kutucukları mı?
+  mode: 'single_select' | 'red_exclusion_multi';
   options: ChipOption[];
   allowCustomOther?: boolean;
   allowPreferNotToSay?: boolean;
@@ -38,12 +38,14 @@ export interface QuestionItem {
 
 export interface UserAnswer {
   questionId: string;
-  selectedOptionId: string; // Ana soruda seçilen kutucuk ID'si ('other_custom' veya 'prefer_not_to_say' dahil)
-  customOtherText?: string; // "Diğer" seçildiyse kullanıcının yazdığı metin
-  followUpSingleAnswers: Record<string, string>; // Alt sorulardaki tekli seçimler
-  followUpCustomTexts: Record<string, string>; // Alt sorulardaki "Diğer" metinleri
-  excludedRedIds: string[]; // 3. fotoğraftaki gibi kırmızı işaretlenen "Kesinlikle İstemem" ID'leri
+  selectedOptionId: string;
+  customOtherText?: string;
+  followUpSingleAnswers: Record<string, string>;
+  followUpCustomTexts: Record<string, string>;
+  excludedRedIds: string[];
 }
+
+export type ContactPlatformChoice = 'whatsapp' | 'instagram' | 'both';
 
 export interface UserSelfProfile {
   aliasCode: string;
@@ -54,7 +56,10 @@ export interface UserSelfProfile {
   profession: string;
   relationshipDynamic: string;
   bio: string;
-  contactChannel: string;
+  preferredContactPlatform: ContactPlatformChoice;
+  whatsappNumber: string;
+  instagramHandle: string;
+  contactPreferenceConfirmed: boolean;
 }
 
 export interface KvkkConsentRecord {
@@ -70,7 +75,8 @@ export interface CriminalRecordAnalysis {
   status: 'unverified' | 'clean' | 'has_record' | 'invalid_document';
   fileName?: string;
   fileSizeKB?: number;
-  barcodeNumber?: string;
+  barcodeNumber?: string; // Örn: ADB02889192793 (Karekodun altındaki resmi kod)
+  maskedBarcode?: string; // Örn: ADB02889****
   documentSayi?: string;
   documentDate?: string;
   sorguTuru?: string;
@@ -84,6 +90,9 @@ export interface CriminalRecordAnalysis {
   adliSicilKaydiYoktur: boolean;
   arsivKaydiYoktur: boolean;
   hasActiveOrArchiveRecord: boolean;
+  extractedRecordDetails?: string; // Kayıt varsa otomatik profile yazdırılan mahkeme/suç satırı
+  profileAutoStamp: string; // Profile otomatik ve değiştirilemez şekilde basılan resmi ibare
+  liveEdevletStatus?: 'connected' | 'captcha_protected' | 'offline_verified';
   verifiedAt?: string;
   verificationHash?: string;
   rawPdfPurged: boolean;
@@ -103,11 +112,16 @@ export interface CandidateProfile {
   shortIntro: string;
   expectationsNote: string;
   favoriteVibe: string;
+  preferredContactPlatform: ContactPlatformChoice;
+  whatsappNumber?: string;
+  instagramHandle?: string;
   criminalRecord: {
     verified: boolean;
     clean: boolean;
     barcodeMasked: string;
     verifiedDate: string;
+    profileAutoStamp: string;
+    recordSummary?: string; // Eğer adli sicil kaydı varsa karşı tarafın onaylaması gereken otomatik kayıt metni
   };
   tags: {
     inanc: string;
@@ -122,9 +136,8 @@ export interface CandidateProfile {
     muzik: string;
     kiskanclik: string;
   };
-  allTraitIds: string[]; // Adayın sahip olduğu tüm özellik ID'leri (Kırmızı kutucuk filtrelemesi için)
-  excludedTraitIds: string[]; // Adayın kesinlikle istemediği özellik ID'leri
-  encryptedContactHandle: string;
+  allTraitIds: string[];
+  excludedTraitIds: string[];
 }
 
 export interface CategoryScoreBreakdown {

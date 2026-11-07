@@ -13,11 +13,15 @@ export const CANDIDATE_POOL: CandidateProfile[] = [
     favoriteVibe: 'Sahilde uzun yürüyüş, kitap kafeler ve sakin akşam sohbetleri',
     shortIntro: 'Manevi değerlerine dikkat eden, sakin iletişim kurabilen, kendi alanında çalışan bir psikoloğum. Herhangi bir cemaat bağlantım yok; kendi halinde, dürüst ve net biriyle tanışmak istiyorum.',
     expectationsNote: 'Alkol kullanmayan, manevi değerlere saygılı, öfke kontrolü olan ve sınırlarını bilen bir partner.',
+    preferredContactPlatform: 'whatsapp',
+    whatsappNumber: '905324184982',
+    instagramHandle: 'zeynep.psikolog',
     criminalRecord: {
       verified: true,
       clean: true,
       barcodeMasked: 'ADB02889884****',
       verifiedDate: '04.11.2026',
+      profileAutoStamp: 'e-Devlet Doğrulandı: Adli Sicil Kaydı Yoktur (ADB02889884****)',
     },
     tags: {
       inanc: 'İslam (İbadetlerine Dikkat Eden)',
@@ -52,7 +56,6 @@ export const CANDIDATE_POOL: CandidateProfile[] = [
       'sin_kati',
     ],
     excludedTraitIds: ['alk_sosyal', 'alk_gece_hayati', 'inanc_ateist', 'dav_karsi_cins_kanka'],
-    encryptedContactHandle: 'e2ee://zeynep.psikolog@mizan.tr | Tel: +90 (532) 418 ** ** (Karşılıklı Onayda Açılır)',
   },
   {
     id: 'cand_f_02',
@@ -65,11 +68,15 @@ export const CANDIDATE_POOL: CandidateProfile[] = [
     favoriteVibe: 'Hafta sonu doğa rotaları, maç izlemek ve üçüncü nesil kahveciler',
     shortIntro: 'Atatürkçü, işinde üretken, aynı zamanda aile ve gelenek sıcaklığını seven dengeli biriyim. Cemaat ve tarikat yapılarına tamamen mesafeliyim. Beraber hem maça gidebileceğim hem de ciddi hayat kurabileceğim birini arıyorum.',
     expectationsNote: 'Atatürk ve Cumhuriyet değerleriyle sorunu olmayan, sorumluluk sahibi ve konuşarak sorun çözebilen biri.',
+    preferredContactPlatform: 'instagram',
+    whatsappNumber: '905448023319',
+    instagramHandle: 'elif.dev.ank',
     criminalRecord: {
       verified: true,
       clean: true,
       barcodeMasked: 'ADB02889391****',
       verifiedDate: '05.11.2026',
+      profileAutoStamp: 'e-Devlet Doğrulandı: Adli Sicil Kaydı Yoktur (ADB02889391****)',
     },
     tags: {
       inanc: 'İslam (Geleneksel / İnançlı)',
@@ -114,7 +121,6 @@ export const CANDIDATE_POOL: CandidateProfile[] = [
       'siy_islamci',
       'siy_kurt_hareketi',
     ],
-    encryptedContactHandle: 'e2ee://elif.dev.ank@mizan.tr | Tel: +90 (544) 802 ** ** (Karşılıklı Onayda Açılır)',
   },
   {
     id: 'cand_f_03',
@@ -127,11 +133,18 @@ export const CANDIDATE_POOL: CandidateProfile[] = [
     favoriteVibe: 'Tarihi mekan gezileri, aile sofraları ve doğa yürüyüşleri',
     shortIntro: 'Manevi sohbet ortamlarını ve geleneksel aile yapısını seven, kendi eczanesini işleten biriyim. İbadetlerine dikkat eden, centilmen ve sözünün eri bir yol arkadaşı arıyorum.',
     expectationsNote: 'İnançlı, alkol ve gece hayatı olmayan, maddi-manevi sorumluluk sahibi bir profil.',
+    preferredContactPlatform: 'whatsapp',
+    whatsappNumber: '905339157240',
+    instagramHandle: 'meryem.ecz.bursa',
     criminalRecord: {
       verified: true,
-      clean: true,
+      clean: false,
       barcodeMasked: 'ADB02889772****',
       verifiedDate: '02.11.2026',
+      profileAutoStamp:
+        'DİKKAT — e-Devlet Sorgusunda Adli Sicil Kaydı Mevcuttur (BURSA 4. ASLİYE CEZA - TAKSİRLE YARALAMA / TRAFİK KAZASI HAGB)',
+      recordSummary:
+        'BURSA 4. ASLİYE CEZA MAHKEMESİ — Taksirle Yaralama (Maddi Hasarlı/Yaralamalı Trafik Kazası - Hükmün Açıklanmasının Geri Bırakılması)',
     },
     tags: {
       inanc: 'İslam (İbadetlerine Dikkat Eden)',
@@ -167,7 +180,6 @@ export const CANDIDATE_POOL: CandidateProfile[] = [
       'sin_kati',
     ],
     excludedTraitIds: ['alk_sosyal', 'alk_gece_hayati', 'inanc_ateist', 'inanc_deist', 'siy_sosyalist'],
-    encryptedContactHandle: 'e2ee://meryem.ecz.bursa@mizan.tr | Tel: +90 (533) 915 ** ** (Karşılıklı Onayda Açılır)',
   },
   {
     id: 'cand_f_04',
@@ -180,11 +192,15 @@ export const CANDIDATE_POOL: CandidateProfile[] = [
     favoriteVibe: 'Konserler, Ege kasabaları, Karşıyaka maçları ve tasarım sergileri',
     shortIntro: 'Atatürkçü, seküler yaşam tarzına sahip, seyahat etmeyi ve spor yapmayı seven bir mimarım. Kıyafetime veya sosyal çevreme karışılmayan, karşılıklı güvene dayalı modern bir ilişki arıyorum.',
     expectationsNote: 'Özgüveni yüksek, seküler yaşam tarzına uyumlu, kendi ayakları üzerinde duran kültürlü biri.',
+    preferredContactPlatform: 'both',
+    whatsappNumber: '905306418812',
+    instagramHandle: 'selin.mimar.izm',
     criminalRecord: {
       verified: true,
       clean: true,
       barcodeMasked: 'ADB02889119****',
       verifiedDate: '06.11.2026',
+      profileAutoStamp: 'e-Devlet Doğrulandı: Adli Sicil Kaydı Yoktur (ADB02889119****)',
     },
     tags: {
       inanc: 'Deist (Yaratıcıya İnanıyorum)',
@@ -226,7 +242,6 @@ export const CANDIDATE_POOL: CandidateProfile[] = [
       'dav_asiri_kiskanc',
       'kb_tesettur_sart',
     ],
-    encryptedContactHandle: 'e2ee://selin.mimar.izm@mizan.tr | Tel: +90 (530) 641 ** ** (Karşılıklı Onayda Açılır)',
   },
 
   // --- ERKEK ADAYLAR ---
@@ -241,11 +256,15 @@ export const CANDIDATE_POOL: CandidateProfile[] = [
     favoriteVibe: 'Doğa kampları, fitness, halı saha ve sakin akşam yemekleri',
     shortIntro: 'İbadetlerine dikkat eden, kendi işini yürüten, alkol ve gece hayatı olmayan net biriyim. Herhangi bir cemaat bağlantım yoktur; maneviyatı ve aile sınırlarını bilen biriyle tanışmak isterim.',
     expectationsNote: 'Tesettürlü veya muhafazakâr giyinen, mahremiyet bilinci olan, samimi bir yol arkadaşı.',
+    preferredContactPlatform: 'whatsapp',
+    whatsappNumber: '905327094410',
+    instagramHandle: 'furkan.ist.tr',
     criminalRecord: {
       verified: true,
       clean: true,
       barcodeMasked: 'ADB02889904****',
       verifiedDate: '05.11.2026',
+      profileAutoStamp: 'e-Devlet Doğrulandı: Adli Sicil Kaydı Yoktur (ADB02889904****)',
     },
     tags: {
       inanc: 'İslam (İbadetlerine Dikkat Eden)',
@@ -281,7 +300,6 @@ export const CANDIDATE_POOL: CandidateProfile[] = [
       'sin_kati',
     ],
     excludedTraitIds: ['alk_sosyal', 'alk_gece_hayati', 'inanc_ateist', 'dav_karsi_cins_kanka'],
-    encryptedContactHandle: 'e2ee://furkan.ist@mizan.tr | Tel: +90 (532) 709 ** ** (Karşılıklı Onayda Açılır)',
   },
   {
     id: 'cand_m_02',
@@ -294,11 +312,15 @@ export const CANDIDATE_POOL: CandidateProfile[] = [
     favoriteVibe: 'Tenis, Beşiktaş maçları, sinema ve hafta sonu gezileri',
     shortIntro: 'Atatürkçü, vatansever ve geleneksel değerlerine saygılı bir hekimim. Cemaat yapılarına tamamen karşıyım. Alkol ve sigaram yok; nöbet dışı vakitlerimi keyifle paylaşabileceğim birini arıyorum.',
     expectationsNote: 'Güler yüzlü, konuşarak sorun çözebilen, ailesinin ilişkiye müdahale etmesine izin vermeyen biri.',
+    preferredContactPlatform: 'instagram',
+    whatsappNumber: '905053128890',
+    instagramHandle: 'dr.kerem.ank',
     criminalRecord: {
       verified: true,
       clean: true,
       barcodeMasked: 'ADB02889612****',
       verifiedDate: '04.11.2026',
+      profileAutoStamp: 'e-Devlet Doğrulandı: Adli Sicil Kaydı Yoktur (ADB02889612****)',
     },
     tags: {
       inanc: 'İslam (Geleneksel / İnançlı)',
@@ -335,7 +357,6 @@ export const CANDIDATE_POOL: CandidateProfile[] = [
       'sin_dengeli',
     ],
     excludedTraitIds: ['cem_hepsi', 'siy_islamci', 'siy_kurt_hareketi', 'alis_sigara'],
-    encryptedContactHandle: 'e2ee://dr.kerem.ank@mizan.tr | Tel: +90 (505) 312 ** ** (Karşılıklı Onayda Açılır)',
   },
   {
     id: 'cand_m_03',
@@ -348,11 +369,18 @@ export const CANDIDATE_POOL: CandidateProfile[] = [
     favoriteVibe: 'Motosiklet turları, konserler, dünya mutfağı ve Fenerbahçe maçları',
     shortIntro: 'Atatürkçü, seküler yaşam tarzına sahip, spor yapmayı ve seyahat etmeyi seven biriyim. İlişkide karşılıklı güven, eşitlik ve bireysel özgürlük alanlarına saygı benim için her şeyden önemli.',
     expectationsNote: 'Kendi ayakları üzerinde duran, açık fikirli ve hayat enerjisi yüksek bir partner.',
+    preferredContactPlatform: 'both',
+    whatsappNumber: '905321936615',
+    instagramHandle: 'mert.tech.ist',
     criminalRecord: {
       verified: true,
-      clean: true,
+      clean: false,
       barcodeMasked: 'ADB02889819****',
       verifiedDate: '06.11.2026',
+      profileAutoStamp:
+        'DİKKAT — e-Devlet Sorgusunda Adli Sicil Kaydı Mevcuttur (İSTANBUL 12. ASLİYE CEZA - TCK 125/1 HAKARET ADLİ PARA CEZASI)',
+      recordSummary:
+        'İSTANBUL 12. ASLİYE CEZA MAHKEMESİ — TCK 125/1 Sosyal Medya Tartışması / Adli Para Cezası Kaydı',
     },
     tags: {
       inanc: 'Agnostik / Seküler',
@@ -387,6 +415,5 @@ export const CANDIDATE_POOL: CandidateProfile[] = [
       'sin_ozgur',
     ],
     excludedTraitIds: ['cem_hepsi', 'siy_islamci', 'siy_muhafazakar', 'dav_asiri_kiskanc'],
-    encryptedContactHandle: 'e2ee://mert.tech.ist@mizan.tr | Tel: +90 (532) 193 ** ** (Karşılıklı Onayda Açılır)',
   },
 ];

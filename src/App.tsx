@@ -29,7 +29,10 @@ export function App() {
     profession: 'Yazılım & Teknoloji',
     relationshipDynamic: 'Uzun Vadeli & Ciddi İlişki',
     bio: 'Net kriterleri olan, samimi ve kafa dengi biriyle tanışmak isteyen biriyim.',
-    contactChannel: '+90 (532) 890 ** **',
+    preferredContactPlatform: 'whatsapp',
+    whatsappNumber: '+90 532 890 12 34',
+    instagramHandle: 'berke.mizan',
+    contactPreferenceConfirmed: false,
   });
 
   // Kullanıcı soruları tek tek cevaplamak zorunda olsun diye başlangıçta boş başlıyor
@@ -51,7 +54,8 @@ export function App() {
     hasActiveOrArchiveRecord: false,
     rawPdfPurged: true,
     summaryTitle: 'Doğrulama Bekleniyor',
-    summaryDetail: 'Henüz e-Devlet Adli Sicil PDF belgesi yüklenmedi.',
+    summaryDetail: 'Henüz e-Devlet Adli Sicil barkod sorgusu veya PDF doğrulaması yapılmadı.',
+    profileAutoStamp: 'Henüz e-Devlet Adli Sicil Doğrulaması Yapılmadı',
     detectedClauses: [],
   });
 
@@ -65,6 +69,11 @@ export function App() {
   const handleApplyPresetPersona = (
     persona: 'muhafazakar' | 'sentez' | 'ataturkcu_sekuler'
   ) => {
+    setProfile((prev) => ({
+      ...prev,
+      contactPreferenceConfirmed: true,
+    }));
+
     if (persona === 'muhafazakar') {
       setAnswers({
         q_inanc: {
@@ -309,7 +318,7 @@ export function App() {
   }, [answers, profile.lookingFor]);
 
   return (
-    <div className="min-h-screen flex flex-col bg-[#FAF8F5] text-zinc-900">
+    <div className="min-h-screen flex flex-col bg-[#FAF8F5] text-zinc-900 overflow-x-hidden">
       <Navbar
         activeSection={activeSection}
         onNavigate={(sec) => {
@@ -324,7 +333,7 @@ export function App() {
         totalQuestionsCount={QUESTIONS.length}
       />
 
-      <main className="flex-1">
+      <main className="flex-1 w-full">
         {activeSection === 'hero' && (
           <HeroOverviewSection
             onStartQuestionnaire={() => setActiveSection('anket')}
