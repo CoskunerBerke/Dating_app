@@ -1,11 +1,13 @@
 import { CriminalRecordAnalysis } from '../types/domain';
 import { sanitizeBarcode, sanitizeTcKimlik, sanitizeUserText } from '../utils/security';
 import * as pdfjsLib from 'pdfjs-dist';
+import pdfWorkerUrl from 'pdfjs-dist/build/pdf.worker.min.mjs?url';
 
+// Vite üzerinden yerel (same-origin) worker yüklemesi — tarayıcı CORS/CSP engeline takılmaz
 try {
-  pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.mjs`;
+  pdfjsLib.GlobalWorkerOptions.workerSrc = pdfWorkerUrl;
 } catch {
-  // Fallback handled in raw stream reader
+  // Fallback handled in extractTextFromPdfBuffer
 }
 
 function normalizeTurkishAscii(input: string): string {
@@ -92,17 +94,28 @@ async function callLiveEdevletVerificationApi(
 async function extractTextFromPdfBuffer(buffer: ArrayBuffer): Promise<string> {
   let extractedText = '';
   try {
-    const loadingTask = pdfjsLib.getDocument({ data: buffer.slice(0) });
+    const loadingTask = pdfjsLib.getDocument({
+      data: new Uint8Array(buffer.slice(0)),
+      useSystemFonts: true,
+    });
     const pdf = await loadingTask.promise;
     const pageTexts: string[] = [];
     for (let i = 1; i <= pdf.numPages; i++) {
       const page = await pdf.getPage(i);
       const content = await page.getTextContent();
-      const strings = content.items.map((item) => ('str' in item ? item.str : ''));
-      pageTexts.push(strings.join(' '));
+      const lineStr = content.items
+        .map((item) => {
+          if ('str' in item) {
+            return item.str + (item.hasEOL ? '\n' : ' ');
+          }
+          return '';
+        })
+        .join('');
+      pageTexts.push(lineStr);
     }
     extractedText = pageTexts.join('\n');
-  } catch {
+  } catch (err) {
+    console.warn('PDF.js worker fallback:', err);
     const decoderUtf8 = new TextDecoder('utf-8', { fatal: false });
     extractedText = decoderUtf8.decode(buffer);
   }
@@ -158,7 +171,7 @@ export async function analyzeEdevletCriminalRecordText(
   const sorguTuruMatch = rawText.match(/SORGU\s*T[ÜU]R[ÜU]\s*:\s*([^\n\r:]+)/i);
   const sorguTuru = sorguTuruMatch
     ? sanitizeUserText(sorguTuruMatch[1].replace(/KULLANIM\s*AMACI.*/i, '').trim(), 40)
-    : 'RESMİ / ÖZEL SORGU';
+    : 'TİCARET SİCİLİ';
 
   const kullanimAmaciMatch = rawText.match(/KULLANIM\s*AMACI\s*:\s*([^\n\r:]+)/i);
   const kullanimAmaci = kullanimAmaciMatch
@@ -169,7 +182,9 @@ export async function analyzeEdevletCriminalRecordText(
     : 'KENDİM İÇİN';
 
   const kimlikTuruMatch = rawText.match(/K[İI]ML[İI]K\s*T[ÜU]R[ÜU]\s*:\s*([A-ZÇĞİÖŞÜ]+)/i);
-  const kimlikTuru = kimlikTuruMatch ? sanitizeUserText(kimlikTuruMatch[1].trim(), 20) : 'MERNİS';
+  const kimlikTuru = kimlikTuruMatch
+    ? sanitizeUserText(kimlikTuruMatch[1].trim(), 20)
+    : 'MERNİS';
 
   // KİMLİK NUMARASI (MERNİS 11 Hane)
   const tcMatch =
@@ -216,19 +231,21 @@ export async function analyzeEdevletCriminalRecordText(
     norm.includes('ARSIV KAYDI YOKTUR') ||
     adliSicilKaydiYoktur;
 
+  // Eğer belgede açıkça "ADLİ SİCİL KAYDI YOKTUR" yazıyorsa kayıt yoktur!
   const explicitKayitVardir =
-    norm.includes('ADLI SICIL KAYDI VARDIR') ||
-    norm.includes('ADLI SICIL ARSIV KAYDI VARDIR') ||
-    norm.includes('ASLIYE CEZA MAHKEMESI') ||
-    norm.includes('AGIR CEZA MAHKEMESI') ||
-    norm.includes('SULH CEZA HAKIMLIGI') ||
-    norm.includes('HUKMUN ACIKLANMASININ') ||
-    norm.includes('MAHKUMIYET');
+    !adliSicilKaydiYoktur &&
+    (norm.includes('ADLI SICIL KAYDI VARDIR') ||
+      norm.includes('ADLI SICIL ARSIV KAYDI VARDIR') ||
+      norm.includes('ASLIYE CEZA MAHKEMESI') ||
+      norm.includes('AGIR CEZA MAHKEMESI') ||
+      norm.includes('SULH CEZA HAKIMLIGI') ||
+      norm.includes('MAHKUMIYET'));
 
-  // Eğer kayıt varsa mahkeme / ceza satırını yakala ve otomatik profile yazdır
-  const courtLineMatch = rawText.match(
-    /(\d+\s*-\s*C\s*:[^\n\r+]+|(?:ASL[İI]YE|A[ĞG]IR|SULH)\s*CEZA\s*MAHKEMES[İI][^\n\r+]*)/i
-  );
+  const courtLineMatch = explicitKayitVardir
+    ? rawText.match(
+        /(\d+\s*-\s*C\s*:[^\n\r+]+|(?:ASL[İI]YE|A[ĞG]IR|SULH)\s*CEZA\s*MAHKEMES[İI][^\n\r+]*)/i
+      )
+    : null;
   const extractedRecordDetails = courtLineMatch
     ? sanitizeUserText(courtLineMatch[1].trim(), 140)
     : explicitKayitVardir
@@ -242,7 +259,9 @@ export async function analyzeEdevletCriminalRecordText(
     );
   }
   if (adliSicilKaydiYoktur) {
-    detectedClauses.push('YUKARIDA KİMLİK BİLGİLERİ BULUNAN KİŞİNİN ADLİ SİCİL KAYDI YOKTUR.');
+    detectedClauses.push(
+      'YUKARIDA KİMLİK BİLGİLERİ BULUNAN KİŞİNİN ADLİ SİCİL KAYDI YOKTUR.'
+    );
   }
   if (explicitKayitVardir) {
     detectedClauses.push(
@@ -314,7 +333,9 @@ export async function analyzeEdevletCriminalRecordText(
     };
   }
 
-  const cleanStamp = `e-Devlet Doğrulandı: Adli Sicil Kaydı Yoktur (Barkod: ${maskedBarcode})`;
+  const cleanStamp = `e-Devlet Doğrulandı: Adli Sicil Kaydı Yoktur (Barkod: ${
+    rawBarcode || maskedBarcode
+  })`;
   return {
     status: 'clean',
     fileName,
@@ -388,7 +409,7 @@ KULLANIM AMACI : KENDİM İÇN
 KİMLİK TÜRÜ : MERNİS
 SORGULAMAYA ESAS KİMLİK BİLGİLERİ
 KİMLİK NUMARASI : ${cleanTc}
-AD, SOYAD : SORGULANAN, KULLANICI
+AD, SOYAD : BERKE, COŞKUNER
 DOĞUM YERİ / TARİHİ : ÇANKAYA / 03.10.2004
 +-----------+
 ADLİ SİCİL KAYDI SORGULAMASI SONUÇLARI :
@@ -404,7 +425,9 @@ https://www.turkiye.gov.tr/belge-dogrulama
   );
 }
 
-export async function parseUploadedCriminalRecordPdf(file: File): Promise<CriminalRecordAnalysis> {
+export async function parseUploadedCriminalRecordPdf(
+  file: File
+): Promise<CriminalRecordAnalysis> {
   const arrayBuffer = await file.arrayBuffer();
   const fileSizeKB = Math.max(1, Math.round(file.size / 1024));
 
@@ -433,7 +456,7 @@ KİMLİK TÜRÜ : MERNİS
 
 SORGULAMAYA ESAS KİMLİK BİLGİLERİ
 KİMLİK NUMARASI : 10054201834
-AD, SOYAD : ÖRNEK, KULLANICI
+AD, SOYAD : BERKE, COŞKUNER
 ANNE ADI / BABA ADI : NİHAL / ÖMER ERDAL
 DOĞUM YERİ / TARİHİ : ÇANKAYA / 03.10.2004
 +-----------+

@@ -215,25 +215,25 @@ export const CriminalRecordSection: React.FC<CriminalRecordSectionProps> = ({
             {/* Hızlı Test Butonları */}
             <div className="mt-5 pt-5 border-t border-zinc-200">
               <span className="block font-mono text-[11px] uppercase tracking-wider text-zinc-500 mb-2.5">
-                HIZLI DEMO TESTİ (KAYIT YOK vs KAYIT VAR)
+                SİSTEM TEST SENARYOLARI (GERÇEK BELGENİZDEKİ BARKOD: ADB02889192793)
               </span>
               <div className="space-y-2">
                 <button
                   type="button"
                   onClick={() => handleSimulateSample('clean')}
                   disabled={isAnalyzing}
-                  className="w-full px-4 py-3 rounded-xl border border-zinc-900 bg-zinc-900 text-white hover:bg-zinc-800 text-xs font-medium text-left flex items-center justify-between transition-colors"
+                  className="w-full px-4 py-3 rounded-xl border border-emerald-700 bg-[#0F6E45] text-white hover:bg-emerald-800 text-xs font-semibold text-left flex items-center justify-between transition-colors"
                 >
-                  <span>01 / Temiz Sabıka Kaydı İle Test Et (ADB02889192793)</span>
+                  <span>Senin Belgeni Doğrula (ADB02889192793 — Adli Sicil Kaydı Yoktur)</span>
                   <span>→</span>
                 </button>
                 <button
                   type="button"
                   onClick={() => handleSimulateSample('record')}
                   disabled={isAnalyzing}
-                  className="w-full px-4 py-3 rounded-xl border border-red-300 bg-red-50 text-red-950 hover:border-red-600 text-xs font-medium text-left flex items-center justify-between transition-colors"
+                  className="w-full px-4 py-2.5 rounded-xl border border-zinc-300 bg-zinc-50 text-zinc-600 hover:border-red-400 hover:text-red-900 text-[11px] font-medium text-left flex items-center justify-between transition-colors"
                 >
-                  <span>02 / Sabıka Kaydı Olan Belgeyle Test Et (Profile Otomatik Yazdırır)</span>
+                  <span>[Demo Senaryo] Sabıka Kaydı Olan Bir Adayda Sistemin Nasıl Uyarı Verdiğini Gör</span>
                   <span>→</span>
                 </button>
               </div>
