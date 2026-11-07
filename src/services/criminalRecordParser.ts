@@ -1,11 +1,13 @@
 import { CriminalRecordAnalysis } from '../types/domain';
 import { sanitizeBarcode, sanitizeTcKimlik, sanitizeUserText } from '../utils/security';
 import * as pdfjsLib from 'pdfjs-dist';
-import pdfWorkerUrl from 'pdfjs-dist/build/pdf.worker.min.mjs?url';
 
 // Vite üzerinden yerel (same-origin) worker yüklemesi — tarayıcı CORS/CSP engeline takılmaz
 try {
-  pdfjsLib.GlobalWorkerOptions.workerSrc = pdfWorkerUrl;
+  pdfjsLib.GlobalWorkerOptions.workerSrc = new URL(
+    'pdfjs-dist/build/pdf.worker.min.mjs',
+    import.meta.url
+  ).toString();
 } catch {
   // Fallback handled in extractTextFromPdfBuffer
 }
