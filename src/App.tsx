@@ -1,6 +1,9 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { Navbar } from './components/Navbar';
-import { QuestionnaireSection } from './components/QuestionnaireSection';
+import {
+  QuestionnaireSection,
+  isSingleQuestionValid,
+} from './components/QuestionnaireSection';
 import { CriminalRecordSection } from './components/CriminalRecordSection';
 import { MatchesSection } from './components/MatchesSection';
 import { KvkkConsentSection } from './components/KvkkConsentSection';
@@ -16,10 +19,12 @@ import { analyzeCompatibility } from './services/matchingEngine';
 import { enforceZeroBrowserStorageLeak } from './utils/cryptoVault';
 
 export function App() {
-  // Uygulama doğrudan "1. Uygulamaya Kayıt Ol" ekranında açılır
+  // Uygulama doğrudan "1. Uygulamaya Kayıt Ol" adımında başlar; önceki adım bitmeden sonrakine geçilemez
   const [activeSection, setActiveSection] = useState<
-    'anket' | 'sabika' | 'eslesmeler' | 'kvkk'
-  >('anket');
+    'kayit' | 'sorular' | 'sabika' | 'eslesmeler' | 'kvkk'
+  >('kayit');
+
+  const [criminalStepCompleted, setCriminalStepCompleted] = useState(false);
 
   useEffect(() => {
     enforceZeroBrowserStorageLeak();
@@ -27,25 +32,23 @@ export function App() {
 
   const [profile, setProfile] = useState<UserSelfProfile>({
     aliasCode: 'ADAY #TR-8941',
-    firstName: 'Can',
-    lastName: 'Yılmaz',
-    phoneNumber: '0532 890 12 34',
-    email: 'can.yilmaz@eposta.com',
-    birthDate: '2002-05-14',
-    hometown: 'İzmir',
+    firstName: '',
+    lastName: '',
+    phoneNumber: '',
+    email: '',
+    birthDate: '',
+    hometown: '',
+    city: '',
     gender: 'erkek',
     lookingFor: 'kadin',
     age: 24,
-    heightCm: 187,
+    heightCm: 178,
     bodyType: 'Orta yapılı',
-    city: 'İzmir',
-    profession: 'Yazılım & Teknoloji',
+    profession: 'Belirtilmedi',
     personaTitle: 'Özgür Yolcu',
     relationshipDynamic: 'Uzun Vadeli & Ciddi İlişki',
-    bio: 'Net kriterleri olan, samimi ve kafa dengi biriyle tanışmak isteyen biriyim.',
+    bio: '',
     characterTraits: [
-      'Dinde esnek',
-      'Bağımsız',
       'Açık sözlü',
       'Sabırlı',
       'Titiz ve bakımlı',
@@ -60,18 +63,18 @@ export function App() {
       'Arkadaşlarla sohbet',
     ],
     preferredContactPlatform: 'whatsapp',
-    whatsappNumber: '0532 890 12 34',
-    instagramHandle: 'can.mizan',
+    whatsappNumber: '',
+    instagramHandle: '',
     contactPreferenceConfirmed: true,
     registrationCompleted: false,
   });
 
-  // Kullanıcı 9 soruyu tek tek cevaplar
+  // Kullanıcı 9 soruyu sırayla tek tek cevaplar
   const [answers, setAnswers] = useState<Record<string, UserAnswer>>({});
 
   const [kvkkConsent, setKvkkConsent] = useState<KvkkConsentRecord>({
     generalIlluminationAccepted: true,
-    specialCategoryExplicitConsent: true,
+    specialCategoryExplicitConsent: false,
     zeroRetentionPdfAccepted: true,
     trServerTransferAccepted: true,
     consentTimestamp: '07.11.2026 13:10',
@@ -92,6 +95,50 @@ export function App() {
     detectedClauses: [],
   });
 
+  const completedQuestionsCount = useMemo(
+    () =>
+      QUESTIONS.filter((q) => isSingleQuestionValid(q, answers[q.id])).length,
+    [answers]
+  );
+
+  const questionnaireCompleted =
+    profile.registrationCompleted &&
+    completedQuestionsCount === QUESTIONS.length;
+
+  // Sıralı Adım Kilidi: Bir önceki adım tamamlanmadan sonraki adıma geçilemez
+  const handleSafeNavigate = (
+    target: 'kayit' | 'sorular' | 'sabika' | 'eslesmeler' | 'kvkk'
+  ) => {
+    if (target === 'kvkk' || target === 'kayit') {
+      setActiveSection(target);
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+      return;
+    }
+    if (target === 'sorular') {
+      if (!profile.registrationCompleted) return;
+      setActiveSection('sorular');
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+      return;
+    }
+    if (target === 'sabika') {
+      if (!profile.registrationCompleted || !questionnaireCompleted) return;
+      setActiveSection('sabika');
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+      return;
+    }
+    if (target === 'eslesmeler') {
+      if (
+        !profile.registrationCompleted ||
+        !questionnaireCompleted ||
+        !criminalStepCompleted
+      ) {
+        return;
+      }
+      setActiveSection('eslesmeler');
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+  };
+
   const handleUpdateAnswer = (questionId: string, updated: UserAnswer) => {
     setAnswers((prev) => ({
       ...prev,
@@ -102,11 +149,7 @@ export function App() {
   const handleApplyPresetPersona = (
     persona: 'muhafazakar' | 'sentez' | 'ataturkcu_sekuler'
   ) => {
-    setProfile((prev) => ({
-      ...prev,
-      contactPreferenceConfirmed: true,
-      registrationCompleted: true,
-    }));
+    if (!profile.registrationCompleted) return;
 
     if (persona === 'muhafazakar') {
       setAnswers({
@@ -334,21 +377,27 @@ export function App() {
     <div className="min-h-screen flex flex-col bg-[#FAF8F5] text-zinc-900 overflow-x-hidden">
       <Navbar
         activeSection={activeSection}
-        onNavigate={(sec) => {
-          setActiveSection(sec);
-          window.scrollTo({ top: 0, behavior: 'smooth' });
-        }}
-        kvkkApproved={kvkkConsent.specialCategoryExplicitConsent}
+        onNavigate={handleSafeNavigate}
+        registrationCompleted={profile.registrationCompleted}
+        questionnaireCompleted={questionnaireCompleted}
+        criminalStepCompleted={criminalStepCompleted}
         criminalUploaded={criminalAnalysis.uploaded}
-        completedQuestionsCount={
-          QUESTIONS.filter((q) => Boolean(answers[q.id]?.selectedOptionId)).length
-        }
+        completedQuestionsCount={completedQuestionsCount}
         totalQuestionsCount={QUESTIONS.length}
       />
 
       <main className="flex-1 w-full">
-        {activeSection === 'anket' && (
+        {(activeSection === 'kayit' || activeSection === 'sorular') && (
           <QuestionnaireSection
+            stepMode={
+              activeSection === 'sorular' && profile.registrationCompleted
+                ? 'sorular'
+                : 'kayit'
+            }
+            onChangeStepMode={(mode) => {
+              if (mode === 'sorular' && !profile.registrationCompleted) return;
+              setActiveSection(mode);
+            }}
             profile={profile}
             onUpdateProfile={setProfile}
             answers={answers}
@@ -363,39 +412,50 @@ export function App() {
             }
             onRequestKvkkModal={() => setActiveSection('kvkk')}
             onFinishQuestionnaire={() => {
-              // 9 soru bittiğinde doğrudan 3. Adım olan Adli Sicil Yükleme ekranına geçer
+              if (!profile.registrationCompleted || !questionnaireCompleted) return;
               setActiveSection('sabika');
               window.scrollTo({ top: 0, behavior: 'smooth' });
             }}
           />
         )}
 
-        {activeSection === 'sabika' && (
-          <CriminalRecordSection
-            analysis={criminalAnalysis}
-            onUpdateAnalysis={setCriminalAnalysis}
-            onContinueToMatches={() => {
-              setActiveSection('eslesmeler');
-              window.scrollTo({ top: 0, behavior: 'smooth' });
-            }}
-          />
-        )}
+        {activeSection === 'sabika' &&
+          profile.registrationCompleted &&
+          questionnaireCompleted && (
+            <CriminalRecordSection
+              analysis={criminalAnalysis}
+              onUpdateAnalysis={(res) => {
+                setCriminalAnalysis(res);
+                if (res.uploaded) {
+                  setCriminalStepCompleted(true);
+                }
+              }}
+              onContinueToMatches={() => {
+                setCriminalStepCompleted(true);
+                setActiveSection('eslesmeler');
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+              }}
+            />
+          )}
 
-        {activeSection === 'eslesmeler' && (
-          <MatchesSection
-            profile={profile}
-            matches={calculatedMatches}
-            userCriminalAnalysis={criminalAnalysis}
-            onGoToCriminalCheck={() => setActiveSection('sabika')}
-            onGoToQuestionnaire={() => setActiveSection('anket')}
-          />
-        )}
+        {activeSection === 'eslesmeler' &&
+          profile.registrationCompleted &&
+          questionnaireCompleted &&
+          criminalStepCompleted && (
+            <MatchesSection
+              profile={profile}
+              matches={calculatedMatches}
+              userCriminalAnalysis={criminalAnalysis}
+              onGoToCriminalCheck={() => setActiveSection('sabika')}
+              onGoToQuestionnaire={() => setActiveSection('sorular')}
+            />
+          )}
 
         {activeSection === 'kvkk' && (
           <KvkkConsentSection
             consent={kvkkConsent}
             onSaveConsent={setKvkkConsent}
-            onContinueToQuestionnaire={() => setActiveSection('anket')}
+            onContinueToQuestionnaire={() => setActiveSection('kayit')}
           />
         )}
       </main>

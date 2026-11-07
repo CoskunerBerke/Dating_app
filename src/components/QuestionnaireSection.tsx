@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import {
   ContactPlatformChoice,
   FollowUpBlock,
+  QuestionItem,
   UserAnswer,
   UserSelfProfile,
 } from '../types/domain';
@@ -24,6 +25,7 @@ import {
   Lock,
   ShieldCheck,
   Sparkles,
+  CheckCircle2,
 } from 'lucide-react';
 import {
   TURKIYE_ILLER,
@@ -39,6 +41,8 @@ import {
 import { sealIdentityWithAes256Gcm } from '../utils/cryptoVault';
 
 interface QuestionnaireSectionProps {
+  stepMode: 'kayit' | 'sorular';
+  onChangeStepMode: (mode: 'kayit' | 'sorular') => void;
   profile: UserSelfProfile;
   onUpdateProfile: (updated: UserSelfProfile) => void;
   answers: Record<string, UserAnswer>;
@@ -52,7 +56,48 @@ interface QuestionnaireSectionProps {
   onFinishQuestionnaire: () => void;
 }
 
+export function isSingleQuestionValid(
+  question: QuestionItem,
+  answer?: UserAnswer
+): boolean {
+  if (!answer || !answer.selectedOptionId) return false;
+  if (
+    answer.selectedOptionId === 'other_custom' &&
+    !answer.customOtherText?.trim()
+  ) {
+    return false;
+  }
+
+  const activeFollowUps = question.followUps.filter((f) => {
+    if (!answer.selectedOptionId) return false;
+    if (answer.selectedOptionId === 'prefer_not_to_say') {
+      return f.mode === 'red_exclusion_multi';
+    }
+    return (
+      f.triggerOptionIds.includes('*') ||
+      f.triggerOptionIds.includes(answer.selectedOptionId)
+    );
+  });
+
+  for (const f of activeFollowUps) {
+    if (f.mode === 'single_select') {
+      const subSelected = answer.followUpSingleAnswers[f.id];
+      if (!subSelected) return false;
+      if (
+        subSelected === 'other_custom' &&
+        !answer.followUpCustomTexts[f.id]?.trim()
+      ) {
+        return false;
+      }
+    }
+  }
+
+  return true;
+}
+
 export const QuestionnaireSection: React.FC<QuestionnaireSectionProps> = ({
+  stepMode,
+  onChangeStepMode,
   profile,
   onUpdateProfile,
   answers,
@@ -63,9 +108,6 @@ export const QuestionnaireSection: React.FC<QuestionnaireSectionProps> = ({
   onRequestKvkkModal,
   onFinishQuestionnaire,
 }) => {
-  const [stepMode, setStepMode] = useState<'kayit' | 'sorular'>(
-    profile.registrationCompleted ? 'sorular' : 'kayit'
-  );
   const [currentIndex, setCurrentIndex] = useState(0);
   const [validationError, setValidationError] = useState<string | null>(null);
   const [isSealingVault, setIsSealingVault] = useState(false);
@@ -80,16 +122,23 @@ export const QuestionnaireSection: React.FC<QuestionnaireSectionProps> = ({
     excludedRedIds: [],
   };
 
-  const completedCount = QUESTIONS.filter((q) => {
-    const a = answers[q.id];
-    if (!a || !a.selectedOptionId) return false;
-    if (a.selectedOptionId === 'other_custom' && !a.customOtherText?.trim()) {
-      return false;
+  const completedCount = QUESTIONS.filter((q) =>
+    isSingleQuestionValid(q, answers[q.id])
+  ).length;
+
+  const progressPercent = Math.round((completedCount / QUESTIONS.length) * 100);
+
+  // Bir soruya tıklanabilmesi için kendisinden önceki TÜM soruların eksiksiz cevaplanmış olması şarttır
+  const isQuestionUnlocked = (targetIdx: number): boolean => {
+    if (!profile.registrationCompleted) return false;
+    if (targetIdx === 0) return true;
+    for (let i = 0; i < targetIdx; i++) {
+      if (!isSingleQuestionValid(QUESTIONS[i], answers[QUESTIONS[i].id])) {
+        return false;
+      }
     }
     return true;
-  }).length;
-
-  const progressPercent = Math.round(((currentIndex + 1) / QUESTIONS.length) * 100);
+  };
 
   const activeFollowUps = currentQuestion.followUps.filter((f) => {
     if (!currentAnswer.selectedOptionId) return false;
@@ -101,29 +150,6 @@ export const QuestionnaireSection: React.FC<QuestionnaireSectionProps> = ({
       f.triggerOptionIds.includes(currentAnswer.selectedOptionId)
     );
   });
-
-  const isCurrentQuestionValid = (): boolean => {
-    if (!currentAnswer.selectedOptionId) return false;
-    if (
-      currentAnswer.selectedOptionId === 'other_custom' &&
-      !currentAnswer.customOtherText?.trim()
-    ) {
-      return false;
-    }
-    for (const f of activeFollowUps) {
-      if (f.mode === 'single_select') {
-        const subSelected = currentAnswer.followUpSingleAnswers[f.id];
-        if (!subSelected) return false;
-        if (
-          subSelected === 'other_custom' &&
-          !currentAnswer.followUpCustomTexts[f.id]?.trim()
-        ) {
-          return false;
-        }
-      }
-    }
-    return true;
-  };
 
   const validateRegistrationStep = (): string | null => {
     if (profile.firstName.trim().length < 2) {
@@ -196,11 +222,31 @@ export const QuestionnaireSection: React.FC<QuestionnaireSectionProps> = ({
         encryptedEnvelope: envelope,
       });
 
-      setStepMode('sorular');
+      onChangeStepMode('sorular');
       window.scrollTo({ top: 0, behavior: 'smooth' });
     } finally {
       setIsSealingVault(false);
     }
+  };
+
+  const handleFillSampleRegistration = () => {
+    setValidationError(null);
+    onToggleKvkkApproved(true);
+    onUpdateProfile({
+      ...profile,
+      firstName: 'Can',
+      lastName: 'Yılmaz',
+      phoneNumber: '0532 890 12 34',
+      whatsappNumber: '0532 890 12 34',
+      email: 'can.yilmaz@eposta.com',
+      birthDate: '2000-05-14',
+      age: 26,
+      hometown: 'İzmir',
+      city: 'İzmir',
+      instagramHandle: 'can.mizan',
+      preferredContactPlatform: 'whatsapp',
+      contactPreferenceConfirmed: true,
+    });
   };
 
   const handleToggleCharacterTrait = (trait: string) => {
@@ -266,7 +312,7 @@ export const QuestionnaireSection: React.FC<QuestionnaireSectionProps> = ({
   };
 
   const handleGoNextQuestion = () => {
-    if (!isCurrentQuestionValid()) {
+    if (!isSingleQuestionValid(currentQuestion, currentAnswer)) {
       setValidationError('Lütfen devam etmek için bu sorudaki zorunlu seçimi tamamla.');
       return;
     }
@@ -285,92 +331,114 @@ export const QuestionnaireSection: React.FC<QuestionnaireSectionProps> = ({
       setCurrentIndex((prev) => prev - 1);
       window.scrollTo({ top: 0, behavior: 'smooth' });
     } else {
-      setStepMode('kayit');
+      onChangeStepMode('kayit');
       window.scrollTo({ top: 0, behavior: 'smooth' });
     }
   };
 
   return (
     <section className="max-w-2xl mx-auto px-4 sm:px-6 py-5 sm:py-8 animate-section-enter">
-      {/* Üst Uygulama Adım Çubuğu + Hızlı Demo */}
+      {/* Üst Uygulama Adım Çubuğu (Önceki adım tamamlanmadan diğerine tıklanamaz) */}
       <div className="flex flex-wrap items-center justify-between gap-2 mb-5">
         <div className="inline-flex bg-zinc-200/80 p-1 rounded-2xl">
           <button
             type="button"
             onClick={() => {
               setValidationError(null);
-              setStepMode('kayit');
+              onChangeStepMode('kayit');
             }}
-            className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all whitespace-nowrap ${
+            className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all whitespace-nowrap flex items-center gap-1.5 ${
               stepMode === 'kayit'
                 ? 'bg-white text-zinc-900 shadow-sm'
-                : 'text-zinc-600 hover:text-zinc-900'
+                : 'text-zinc-700 hover:text-zinc-900'
             }`}
           >
-            1. Uygulamaya Kayıt Ol
+            {profile.registrationCompleted && (
+              <CheckCircle2 className="w-3.5 h-3.5 text-[#0F6E45] shrink-0" />
+            )}
+            <span>1. Uygulamaya Kayıt Ol</span>
           </button>
+
           <button
             type="button"
+            disabled={!profile.registrationCompleted}
             onClick={() => {
-              const err = validateRegistrationStep();
-              if (err) {
-                setValidationError(err);
-                setStepMode('kayit');
-                return;
-              }
+              if (!profile.registrationCompleted) return;
               setValidationError(null);
-              setStepMode('sorular');
+              onChangeStepMode('sorular');
             }}
-            className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all whitespace-nowrap ${
+            title={
+              !profile.registrationCompleted
+                ? '9 soruya geçebilmek için önce 1. Adımda uygulamaya kayıt olmalısın.'
+                : '2. 9 Soru'
+            }
+            className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all whitespace-nowrap flex items-center gap-1.5 ${
               stepMode === 'sorular'
                 ? 'bg-white text-zinc-900 shadow-sm'
-                : 'text-zinc-600 hover:text-zinc-900'
+                : !profile.registrationCompleted
+                ? 'text-zinc-400 opacity-50 cursor-not-allowed select-none'
+                : 'text-zinc-700 hover:text-zinc-900'
             }`}
           >
-            2. 9 Soru ({completedCount}/{QUESTIONS.length})
+            {!profile.registrationCompleted && (
+              <Lock className="w-3.5 h-3.5 text-zinc-400 shrink-0" />
+            )}
+            <span>
+              2. 9 Soru ({completedCount}/{QUESTIONS.length})
+            </span>
           </button>
         </div>
 
-        {/* Hızlı Test Profilleri */}
-        <div className="flex items-center gap-1.5">
-          <span className="text-[11px] text-zinc-500 font-medium flex items-center gap-1">
-            <Sparkles className="w-3 h-3 text-[#0F6E45]" />
-            Hızlı Doldur:
-          </span>
+        {/* Kayıt adımında örnek form doldurma; Sorular adımında (sadece kayıt tamamlandıysa) hızlı cevap doldurma */}
+        {stepMode === 'kayit' ? (
           <button
             type="button"
-            onClick={() => {
-              onApplyPresetPersona('muhafazakar');
-              setValidationError(null);
-              setStepMode('sorular');
-            }}
-            className="px-2.5 py-1 text-[11px] font-semibold rounded-lg border border-zinc-300 bg-white hover:border-zinc-900 transition-colors"
+            onClick={handleFillSampleRegistration}
+            className="px-3 py-1.5 text-[11px] font-semibold rounded-xl border border-zinc-300 bg-white hover:border-zinc-900 text-zinc-700 flex items-center gap-1.5 transition-colors"
           >
-            Muhafazakâr
+            <Sparkles className="w-3.5 h-3.5 text-[#0F6E45]" />
+            <span>Örnek Kayıt Bilgisi Doldur</span>
           </button>
-          <button
-            type="button"
-            onClick={() => {
-              onApplyPresetPersona('sentez');
-              setValidationError(null);
-              setStepMode('sorular');
-            }}
-            className="px-2.5 py-1 text-[11px] font-semibold rounded-lg border border-zinc-300 bg-white hover:border-zinc-900 transition-colors"
-          >
-            Dengeli
-          </button>
-          <button
-            type="button"
-            onClick={() => {
-              onApplyPresetPersona('ataturkcu_sekuler');
-              setValidationError(null);
-              setStepMode('sorular');
-            }}
-            className="px-2.5 py-1 text-[11px] font-semibold rounded-lg border border-zinc-300 bg-white hover:border-zinc-900 transition-colors"
-          >
-            Seküler
-          </button>
-        </div>
+        ) : (
+          profile.registrationCompleted && (
+            <div className="flex items-center gap-1.5">
+              <span className="text-[11px] text-zinc-500 font-medium flex items-center gap-1">
+                <Sparkles className="w-3 h-3 text-[#0F6E45]" />
+                Hızlı Cevapla:
+              </span>
+              <button
+                type="button"
+                onClick={() => {
+                  onApplyPresetPersona('muhafazakar');
+                  setValidationError(null);
+                }}
+                className="px-2.5 py-1 text-[11px] font-semibold rounded-lg border border-zinc-300 bg-white hover:border-zinc-900 transition-colors"
+              >
+                Muhafazakâr
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  onApplyPresetPersona('sentez');
+                  setValidationError(null);
+                }}
+                className="px-2.5 py-1 text-[11px] font-semibold rounded-lg border border-zinc-300 bg-white hover:border-zinc-900 transition-colors"
+              >
+                Dengeli
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  onApplyPresetPersona('ataturkcu_sekuler');
+                  setValidationError(null);
+                }}
+                className="px-2.5 py-1 text-[11px] font-semibold rounded-lg border border-zinc-300 bg-white hover:border-zinc-900 transition-colors"
+              >
+                Seküler
+              </button>
+            </div>
+          )
+        )}
       </div>
 
       {/* ADIM 1: UYGULAMAYA KAYIT OL (KİŞİSEL BİLGİLER & İLETİŞİM KANALI) */}
@@ -379,13 +447,13 @@ export const QuestionnaireSection: React.FC<QuestionnaireSectionProps> = ({
           <div className="flex items-start justify-between gap-3 border-b border-zinc-100 pb-4">
             <div>
               <span className="text-[11px] font-bold uppercase tracking-wider text-[#0F6E45]">
-                ADIM 1 / 3 • GÜVENLİ KAYIT
+                ADIM 1 / 3 • ZORUNLU KAYIT ADIMI
               </span>
               <h1 className="text-xl sm:text-2xl font-bold text-zinc-900 mt-0.5">
                 Uygulamaya Kayıt Ol
               </h1>
               <p className="text-xs sm:text-sm text-zinc-500 mt-1">
-                Eşleşme algoritmasının seni doğru tanıması ve karşılıklı onayda iletişim kurulabilmesi için kişisel bilgilerini eksiksiz doldur.
+                Uygulamaya kayıt olmadan diğer adımlara (9 Soru, Adli Sicil ve Eşleşmeler) geçilemez. Lütfen bilgilerini eksiksiz doldur.
               </p>
             </div>
             <div className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-50 border border-emerald-200 text-[#0F6E45] text-[11px] font-bold shrink-0">
@@ -410,6 +478,7 @@ export const QuestionnaireSection: React.FC<QuestionnaireSectionProps> = ({
                   onUpdateProfile({
                     ...profile,
                     firstName: sanitizeUserText(e.target.value, 30),
+                    registrationCompleted: false,
                   });
                 }}
                 placeholder="Örn: Can"
@@ -434,6 +503,7 @@ export const QuestionnaireSection: React.FC<QuestionnaireSectionProps> = ({
                   onUpdateProfile({
                     ...profile,
                     lastName: sanitizeUserText(e.target.value, 35),
+                    registrationCompleted: false,
                   });
                 }}
                 placeholder="Örn: Yılmaz"
@@ -457,6 +527,7 @@ export const QuestionnaireSection: React.FC<QuestionnaireSectionProps> = ({
                     ...profile,
                     phoneNumber: val,
                     whatsappNumber: val,
+                    registrationCompleted: false,
                   });
                 }}
                 placeholder="0532 123 45 67"
@@ -478,6 +549,7 @@ export const QuestionnaireSection: React.FC<QuestionnaireSectionProps> = ({
                   onUpdateProfile({
                     ...profile,
                     email: sanitizeEmail(e.target.value),
+                    registrationCompleted: false,
                   });
                 }}
                 placeholder="ornek@eposta.com"
@@ -488,9 +560,11 @@ export const QuestionnaireSection: React.FC<QuestionnaireSectionProps> = ({
             <div>
               <label className="block text-xs font-bold text-zinc-800 mb-1">
                 Doğum Tarihi <span className="text-red-600">*</span>{' '}
-                <span className="text-[11px] font-semibold text-[#0F6E45]">
-                  ({calculateAgeFromBirthDate(profile.birthDate)} Yaş)
-                </span>
+                {profile.birthDate && (
+                  <span className="text-[11px] font-semibold text-[#0F6E45]">
+                    ({calculateAgeFromBirthDate(profile.birthDate)} Yaş)
+                  </span>
+                )}
               </label>
               <input
                 type="date"
@@ -504,6 +578,7 @@ export const QuestionnaireSection: React.FC<QuestionnaireSectionProps> = ({
                     ...profile,
                     birthDate: nextBirth,
                     age: calculateAgeFromBirthDate(nextBirth),
+                    registrationCompleted: false,
                   });
                 }}
                 className="w-full px-3.5 py-2.5 text-sm rounded-xl border border-zinc-300 bg-[#FAF8F5] font-medium focus:outline-none focus:border-zinc-900"
@@ -544,10 +619,12 @@ export const QuestionnaireSection: React.FC<QuestionnaireSectionProps> = ({
                   onUpdateProfile({
                     ...profile,
                     hometown: e.target.value,
+                    registrationCompleted: false,
                   });
                 }}
                 className="w-full px-3.5 py-2.5 text-sm rounded-xl border border-zinc-300 bg-[#FAF8F5] font-medium focus:outline-none focus:border-zinc-900"
               >
+                <option value="">Memleket Seçiniz...</option>
                 {TURKIYE_ILLER.map((il) => (
                   <option key={`memleket-${il}`} value={il}>
                     {il}
@@ -567,10 +644,12 @@ export const QuestionnaireSection: React.FC<QuestionnaireSectionProps> = ({
                   onUpdateProfile({
                     ...profile,
                     city: e.target.value,
+                    registrationCompleted: false,
                   });
                 }}
                 className="w-full px-3.5 py-2.5 text-sm rounded-xl border border-zinc-300 bg-[#FAF8F5] font-medium focus:outline-none focus:border-zinc-900"
               >
+                <option value="">Yaşadığın Şehri Seçiniz...</option>
                 {TURKIYE_ILLER.map((il) => (
                   <option key={`sehir-${il}`} value={il}>
                     {il}
@@ -801,10 +880,10 @@ export const QuestionnaireSection: React.FC<QuestionnaireSectionProps> = ({
         </div>
       )}
 
-      {/* ADIM 2: 9 SORULUK UYUM VE KIRMIZI ÇİZGİ TESTİ */}
-      {stepMode === 'sorular' && (
+      {/* ADIM 2: 9 SORULUK UYUM VE KIRMIZI ÇİZGİ TESTİ (Sadece kayıt tamamlandıysa açılır) */}
+      {stepMode === 'sorular' && profile.registrationCompleted && (
         <div className="space-y-4 animate-section-enter">
-          {/* 9 Soruluk Numaralı İlerleme Çubuğu */}
+          {/* 9 Soruluk Numaralı İlerleme Çubuğu (Önceki soru bitmeden sonraki numaraya tıklanamaz) */}
           <div className="bg-white rounded-2xl border border-zinc-200/90 p-3.5 sm:p-4 shadow-sm">
             <div className="flex items-center justify-between text-xs font-bold text-zinc-700 mb-2">
               <span>
@@ -815,22 +894,32 @@ export const QuestionnaireSection: React.FC<QuestionnaireSectionProps> = ({
 
             <div className="grid grid-cols-9 gap-1.5">
               {QUESTIONS.map((q, idx) => {
-                const isDone = Boolean(answers[q.id]?.selectedOptionId);
+                const isDone = isSingleQuestionValid(q, answers[q.id]);
                 const isCurrent = idx === currentIndex;
+                const unlocked = isQuestionUnlocked(idx);
                 return (
                   <button
                     key={q.id}
                     type="button"
+                    disabled={!unlocked}
                     onClick={() => {
+                      if (!unlocked) return;
                       setValidationError(null);
                       setCurrentIndex(idx);
                     }}
+                    title={
+                      !unlocked
+                        ? 'Önceki soruyu cevaplamadan bu soruya geçemezsin.'
+                        : `${idx + 1}. Soru`
+                    }
                     className={`h-8 rounded-lg text-xs font-bold transition-all flex items-center justify-center ${
                       isCurrent
                         ? 'bg-zinc-900 text-white shadow-sm'
                         : isDone
                         ? 'bg-[#E6F4EC] text-[#0F6E45] border border-emerald-200'
-                        : 'bg-zinc-100 text-zinc-500 hover:bg-zinc-200'
+                        : !unlocked
+                        ? 'bg-zinc-100 text-zinc-300 cursor-not-allowed select-none opacity-60'
+                        : 'bg-zinc-100 text-zinc-600 hover:bg-zinc-200'
                     }`}
                   >
                     {idx + 1}
