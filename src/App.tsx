@@ -1,6 +1,5 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { Navbar } from './components/Navbar';
-import { HeroOverviewSection } from './components/HeroOverviewSection';
 import { QuestionnaireSection } from './components/QuestionnaireSection';
 import { CriminalRecordSection } from './components/CriminalRecordSection';
 import { MatchesSection } from './components/MatchesSection';
@@ -14,15 +13,26 @@ import {
 import { QUESTIONS } from './data/questionsData';
 import { CANDIDATE_POOL } from './data/candidatesPool';
 import { analyzeCompatibility } from './services/matchingEngine';
+import { enforceZeroBrowserStorageLeak } from './utils/cryptoVault';
 
 export function App() {
+  // Uygulama doğrudan "1. Uygulamaya Kayıt Ol" ekranında açılır
   const [activeSection, setActiveSection] = useState<
-    'hero' | 'anket' | 'sabika' | 'eslesmeler' | 'kvkk'
-  >('hero');
+    'anket' | 'sabika' | 'eslesmeler' | 'kvkk'
+  >('anket');
+
+  useEffect(() => {
+    enforceZeroBrowserStorageLeak();
+  }, []);
 
   const [profile, setProfile] = useState<UserSelfProfile>({
     aliasCode: 'ADAY #TR-8941',
     firstName: 'Can',
+    lastName: 'Yılmaz',
+    phoneNumber: '0532 890 12 34',
+    email: 'can.yilmaz@eposta.com',
+    birthDate: '2002-05-14',
+    hometown: 'İzmir',
     gender: 'erkek',
     lookingFor: 'kadin',
     age: 24,
@@ -50,12 +60,13 @@ export function App() {
       'Arkadaşlarla sohbet',
     ],
     preferredContactPlatform: 'whatsapp',
-    whatsappNumber: '+90 532 890 12 34',
+    whatsappNumber: '0532 890 12 34',
     instagramHandle: 'can.mizan',
-    contactPreferenceConfirmed: false,
+    contactPreferenceConfirmed: true,
+    registrationCompleted: false,
   });
 
-  // Kullanıcı soruları tek tek cevaplamak zorunda olsun diye başlangıçta boş başlıyor
+  // Kullanıcı 9 soruyu tek tek cevaplar
   const [answers, setAnswers] = useState<Record<string, UserAnswer>>({});
 
   const [kvkkConsent, setKvkkConsent] = useState<KvkkConsentRecord>({
@@ -68,14 +79,16 @@ export function App() {
   });
 
   const [criminalAnalysis, setCriminalAnalysis] = useState<CriminalRecordAnalysis>({
-    status: 'unverified',
+    status: 'not_uploaded',
+    uploaded: false,
     adliSicilKaydiYoktur: false,
     arsivKaydiYoktur: false,
     hasActiveOrArchiveRecord: false,
     rawPdfPurged: true,
-    summaryTitle: 'Doğrulama Bekleniyor',
-    summaryDetail: 'Henüz e-Devlet Adli Sicil barkod sorgusu veya PDF doğrulaması yapılmadı.',
-    profileAutoStamp: 'Henüz e-Devlet Adli Sicil Doğrulaması Yapılmadı',
+    summaryTitle: 'Adli Sicil Belgesi: Yüklenmedi',
+    summaryDetail:
+      'Henüz e-Devlet Adli Sicil PDF belgesi yüklenmedi. Yüklemediğiniz sürece eşleştiğiniz adaylarda "Adli Sicil Belgesi: Yüklenmedi" yazar.',
+    profileAutoStamp: 'Adli Sicil Belgesi: Yüklenmedi',
     detectedClauses: [],
   });
 
@@ -92,6 +105,7 @@ export function App() {
     setProfile((prev) => ({
       ...prev,
       contactPreferenceConfirmed: true,
+      registrationCompleted: true,
     }));
 
     if (persona === 'muhafazakar') {
@@ -152,13 +166,6 @@ export function App() {
           questionId: 'q_giyim',
           selectedOptionId: 'giy_tesettur',
           followUpSingleAnswers: { f_karsi_giyim_beklentisi: 'kb_tesettur_sart' },
-          followUpCustomTexts: {},
-          excludedRedIds: [],
-        },
-        q_muzik_kultur: {
-          questionId: 'q_muzik_kultur',
-          selectedOptionId: 'muz_turku',
-          followUpSingleAnswers: { f_sohbet_konusu: 'soh_psikoloji' },
           followUpCustomTexts: {},
           excludedRedIds: [],
         },
@@ -234,13 +241,6 @@ export function App() {
           followUpCustomTexts: {},
           excludedRedIds: [],
         },
-        q_muzik_kultur: {
-          questionId: 'q_muzik_kultur',
-          selectedOptionId: 'muz_rock',
-          followUpSingleAnswers: { f_sohbet_konusu: 'soh_is_yatirim' },
-          followUpCustomTexts: {},
-          excludedRedIds: [],
-        },
         q_kiskanclik_sinirlar: {
           questionId: 'q_kiskanclik_sinirlar',
           selectedOptionId: 'sin_dengeli',
@@ -310,13 +310,6 @@ export function App() {
           followUpCustomTexts: {},
           excludedRedIds: [],
         },
-        q_muzik_kultur: {
-          questionId: 'q_muzik_kultur',
-          selectedOptionId: 'muz_yabanci',
-          followUpSingleAnswers: { f_sohbet_konusu: 'soh_film_kitap' },
-          followUpCustomTexts: {},
-          excludedRedIds: [],
-        },
         q_kiskanclik_sinirlar: {
           questionId: 'q_kiskanclik_sinirlar',
           selectedOptionId: 'sin_ozgur',
@@ -346,7 +339,7 @@ export function App() {
           window.scrollTo({ top: 0, behavior: 'smooth' });
         }}
         kvkkApproved={kvkkConsent.specialCategoryExplicitConsent}
-        criminalClean={criminalAnalysis.status === 'clean'}
+        criminalUploaded={criminalAnalysis.uploaded}
         completedQuestionsCount={
           QUESTIONS.filter((q) => Boolean(answers[q.id]?.selectedOptionId)).length
         }
@@ -354,15 +347,6 @@ export function App() {
       />
 
       <main className="flex-1 w-full">
-        {activeSection === 'hero' && (
-          <HeroOverviewSection
-            onStartQuestionnaire={() => setActiveSection('anket')}
-            onOpenCriminalCheck={() => setActiveSection('sabika')}
-            onOpenMatches={() => setActiveSection('eslesmeler')}
-            onOpenKvkk={() => setActiveSection('kvkk')}
-          />
-        )}
-
         {activeSection === 'anket' && (
           <QuestionnaireSection
             profile={profile}
@@ -371,8 +355,18 @@ export function App() {
             onUpdateAnswer={handleUpdateAnswer}
             onApplyPresetPersona={handleApplyPresetPersona}
             kvkkApproved={kvkkConsent.specialCategoryExplicitConsent}
+            onToggleKvkkApproved={(approved) =>
+              setKvkkConsent((prev) => ({
+                ...prev,
+                specialCategoryExplicitConsent: approved,
+              }))
+            }
             onRequestKvkkModal={() => setActiveSection('kvkk')}
-            onFinishQuestionnaire={() => setActiveSection('eslesmeler')}
+            onFinishQuestionnaire={() => {
+              // 9 soru bittiğinde doğrudan 3. Adım olan Adli Sicil Yükleme ekranına geçer
+              setActiveSection('sabika');
+              window.scrollTo({ top: 0, behavior: 'smooth' });
+            }}
           />
         )}
 
@@ -380,7 +374,10 @@ export function App() {
           <CriminalRecordSection
             analysis={criminalAnalysis}
             onUpdateAnalysis={setCriminalAnalysis}
-            onContinueToMatches={() => setActiveSection('eslesmeler')}
+            onContinueToMatches={() => {
+              setActiveSection('eslesmeler');
+              window.scrollTo({ top: 0, behavior: 'smooth' });
+            }}
           />
         )}
 
@@ -404,16 +401,16 @@ export function App() {
       </main>
 
       {/* Alt Bilgi */}
-      <footer className="border-t border-zinc-300 bg-white py-8 mt-16">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 text-xs text-zinc-500">
+      <footer className="border-t border-zinc-300 bg-white py-6 mt-12">
+        <div className="max-w-5xl mx-auto px-4 sm:px-6 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-xs text-zinc-500">
           <div>
             <span className="font-serif font-bold text-zinc-900 mr-2">MİZAN</span>
             <span>
-              Kriter, Uyum ve Güven Doğrulamalı Tanışma Platformu • 6698 Sayılı KVKK Uyumlu
+              Uyum & Güven Doğrulamalı Tanışma Uygulaması • 6698 Sayılı KVKK Uyumlu
             </span>
           </div>
           <div className="font-mono text-[11px] text-zinc-500">
-            Sunucu Bölgesi: TÜRKİYE • Şifreli İletişim
+            Sunucu Bölgesi: TÜRKİYE (AES-256-GCM Şifreli Kasa)
           </div>
         </div>
       </footer>

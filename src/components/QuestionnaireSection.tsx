@@ -20,13 +20,23 @@ import {
   EyeOff,
   Phone,
   Instagram,
+  Mail,
+  Lock,
+  ShieldCheck,
+  Sparkles,
 } from 'lucide-react';
 import {
+  TURKIYE_ILLER,
+  calculateAgeFromBirthDate,
+  isValidAdultBirthDate,
+  isValidEmail,
   isValidInstagramHandle,
   isValidTurkishMobile,
+  sanitizeEmail,
   sanitizeInstagramHandle,
   sanitizeUserText,
 } from '../utils/security';
+import { sealIdentityWithAes256Gcm } from '../utils/cryptoVault';
 
 interface QuestionnaireSectionProps {
   profile: UserSelfProfile;
@@ -37,6 +47,7 @@ interface QuestionnaireSectionProps {
     persona: 'muhafazakar' | 'sentez' | 'ataturkcu_sekuler'
   ) => void;
   kvkkApproved: boolean;
+  onToggleKvkkApproved: (approved: boolean) => void;
   onRequestKvkkModal: () => void;
   onFinishQuestionnaire: () => void;
 }
@@ -47,14 +58,19 @@ export const QuestionnaireSection: React.FC<QuestionnaireSectionProps> = ({
   answers,
   onUpdateAnswer,
   onApplyPresetPersona,
+  kvkkApproved,
+  onToggleKvkkApproved,
+  onRequestKvkkModal,
   onFinishQuestionnaire,
 }) => {
-  // 'profil' adımında sadece kişisel bilgiler, 'sorular' adımında tek tek sorular görünür
-  const [stepMode, setStepMode] = useState<'profil' | 'sorular'>('profil');
+  const [stepMode, setStepMode] = useState<'kayit' | 'sorular'>(
+    profile.registrationCompleted ? 'sorular' : 'kayit'
+  );
   const [currentIndex, setCurrentIndex] = useState(0);
   const [validationError, setValidationError] = useState<string | null>(null);
+  const [isSealingVault, setIsSealingVault] = useState(false);
 
-  const currentQuestion = QUESTIONS[currentIndex];
+  const currentQuestion = QUESTIONS[currentIndex] || QUESTIONS[0];
   const currentAnswer: UserAnswer = answers[currentQuestion.id] || {
     questionId: currentQuestion.id,
     selectedOptionId: '',
@@ -73,7 +89,7 @@ export const QuestionnaireSection: React.FC<QuestionnaireSectionProps> = ({
     return true;
   }).length;
 
-  const progressPercent = Math.round((completedCount / QUESTIONS.length) * 100);
+  const progressPercent = Math.round(((currentIndex + 1) / QUESTIONS.length) * 100);
 
   const activeFollowUps = currentQuestion.followUps.filter((f) => {
     if (!currentAnswer.selectedOptionId) return false;
@@ -109,21 +125,82 @@ export const QuestionnaireSection: React.FC<QuestionnaireSectionProps> = ({
     return true;
   };
 
-  const isContactPreferenceStepValid = (): boolean => {
-    if (!profile.contactPreferenceConfirmed) return false;
-    if (
-      profile.preferredContactPlatform === 'whatsapp' ||
-      profile.preferredContactPlatform === 'both'
-    ) {
-      if (!isValidTurkishMobile(profile.whatsappNumber)) return false;
+  const validateRegistrationStep = (): string | null => {
+    if (profile.firstName.trim().length < 2) {
+      return 'Lütfen adını gir (en az 2 harf).';
+    }
+    if (profile.lastName.trim().length < 2) {
+      return 'Lütfen soyadını gir (en az 2 harf). Soyadın şifreli kasada tutulur, diğer adaylara açık gösterilmez.';
+    }
+    if (!isValidTurkishMobile(profile.phoneNumber)) {
+      return 'Lütfen geçerli bir Türkiye cep telefonu numarası gir (Örn: 0532 123 45 67).';
+    }
+    if (!isValidEmail(profile.email)) {
+      return 'Lütfen geçerli bir e-posta (mail) adresi gir (Örn: ad.soyad@ornek.com).';
+    }
+    if (!isValidAdultBirthDate(profile.birthDate)) {
+      return 'Lütfen geçerli bir doğum tarihi seç (Uygulamaya kayıt için 18 yaş sınırı zorunludur).';
+    }
+    if (!profile.hometown.trim()) {
+      return 'Lütfen nereli olduğunu (memleketini) seç.';
+    }
+    if (!profile.city.trim()) {
+      return 'Lütfen şu an yaşadığın şehri seç.';
     }
     if (
-      profile.preferredContactPlatform === 'instagram' ||
-      profile.preferredContactPlatform === 'both'
+      profile.preferredContactPlatform === 'instagram' &&
+      !isValidInstagramHandle(profile.instagramHandle)
     ) {
-      if (!isValidInstagramHandle(profile.instagramHandle)) return false;
+      return 'İletişim tercihi olarak Instagram seçtiğin için lütfen geçerli bir Instagram kullanıcı adı gir.';
     }
-    return true;
+    if (
+      profile.instagramHandle.trim().length > 0 &&
+      !isValidInstagramHandle(profile.instagramHandle)
+    ) {
+      return 'Instagram kullanıcı adı geçersiz karakter içeriyor.';
+    }
+    if (!kvkkApproved) {
+      return 'Devam etmek için Türkiye Yerel Sunucu ve KVKK Açık Rıza onay kutusunu işaretlemelisin.';
+    }
+    return null;
+  };
+
+  const handleCompleteRegistrationAndStartQuestions = async () => {
+    const errorMsg = validateRegistrationStep();
+    if (errorMsg) {
+      setValidationError(errorMsg);
+      return;
+    }
+    setValidationError(null);
+    setIsSealingVault(true);
+    try {
+      const calculatedAge = calculateAgeFromBirthDate(profile.birthDate);
+      const envelope = await sealIdentityWithAes256Gcm({
+        firstName: profile.firstName.trim(),
+        lastName: profile.lastName.trim(),
+        phoneNumber: profile.phoneNumber.trim(),
+        email: profile.email.trim(),
+        birthDate: profile.birthDate,
+        hometown: profile.hometown,
+        city: profile.city,
+        instagramHandle: profile.instagramHandle.trim(),
+        preferredContactChannel: profile.preferredContactPlatform,
+      });
+
+      onUpdateProfile({
+        ...profile,
+        age: calculatedAge,
+        whatsappNumber: profile.phoneNumber.trim(),
+        contactPreferenceConfirmed: true,
+        registrationCompleted: true,
+        encryptedEnvelope: envelope,
+      });
+
+      setStepMode('sorular');
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    } finally {
+      setIsSealingVault(false);
+    }
   };
 
   const handleToggleCharacterTrait = (trait: string) => {
@@ -188,9 +265,9 @@ export const QuestionnaireSection: React.FC<QuestionnaireSectionProps> = ({
     });
   };
 
-  const handleGoNext = () => {
+  const handleGoNextQuestion = () => {
     if (!isCurrentQuestionValid()) {
-      setValidationError('Lütfen devam etmek için bir seçenek işaretle.');
+      setValidationError('Lütfen devam etmek için bu sorudaki zorunlu seçimi tamamla.');
       return;
     }
     setValidationError(null);
@@ -198,65 +275,76 @@ export const QuestionnaireSection: React.FC<QuestionnaireSectionProps> = ({
       setCurrentIndex((prev) => prev + 1);
       window.scrollTo({ top: 0, behavior: 'smooth' });
     } else {
-      if (!isContactPreferenceStepValid()) {
-        setValidationError(
-          'Lütfen WhatsApp veya Instagram iletişim tercihini seç ve bilgini gir.'
-        );
-        return;
-      }
       onFinishQuestionnaire();
     }
   };
 
-  const handleGoPrev = () => {
+  const handleGoPrevQuestion = () => {
     setValidationError(null);
     if (currentIndex > 0) {
       setCurrentIndex((prev) => prev - 1);
       window.scrollTo({ top: 0, behavior: 'smooth' });
     } else {
-      setStepMode('profil');
+      setStepMode('kayit');
+      window.scrollTo({ top: 0, behavior: 'smooth' });
     }
   };
 
   return (
-    <section className="max-w-2xl mx-auto px-4 sm:px-6 py-6 sm:py-10 animate-section-enter">
-      {/* Üst Sekme Seçici (1. Kişisel Bilgiler | 2. Sorular) */}
+    <section className="max-w-2xl mx-auto px-4 sm:px-6 py-5 sm:py-8 animate-section-enter">
+      {/* Üst Uygulama Adım Çubuğu + Hızlı Demo */}
       <div className="flex flex-wrap items-center justify-between gap-2 mb-5">
-        <div className="inline-flex bg-zinc-200/70 p-1 rounded-2xl">
+        <div className="inline-flex bg-zinc-200/80 p-1 rounded-2xl">
           <button
             type="button"
-            onClick={() => setStepMode('profil')}
-            className={`px-4 py-2 rounded-xl text-xs font-bold transition-all ${
-              stepMode === 'profil'
+            onClick={() => {
+              setValidationError(null);
+              setStepMode('kayit');
+            }}
+            className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all whitespace-nowrap ${
+              stepMode === 'kayit'
                 ? 'bg-white text-zinc-900 shadow-sm'
                 : 'text-zinc-600 hover:text-zinc-900'
             }`}
           >
-            1. Kişisel Bilgilerin
+            1. Uygulamaya Kayıt Ol
           </button>
           <button
             type="button"
-            onClick={() => setStepMode('sorular')}
-            className={`px-4 py-2 rounded-xl text-xs font-bold transition-all ${
+            onClick={() => {
+              const err = validateRegistrationStep();
+              if (err) {
+                setValidationError(err);
+                setStepMode('kayit');
+                return;
+              }
+              setValidationError(null);
+              setStepMode('sorular');
+            }}
+            className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all whitespace-nowrap ${
               stepMode === 'sorular'
                 ? 'bg-white text-zinc-900 shadow-sm'
                 : 'text-zinc-600 hover:text-zinc-900'
             }`}
           >
-            2. Kriter Soruları ({completedCount}/{QUESTIONS.length})
+            2. 9 Soru ({completedCount}/{QUESTIONS.length})
           </button>
         </div>
 
-        {/* Hızlı Demo Doldurma */}
-        <div className="flex items-center gap-1">
-          <span className="text-[11px] text-zinc-400 mr-1">Demo:</span>
+        {/* Hızlı Test Profilleri */}
+        <div className="flex items-center gap-1.5">
+          <span className="text-[11px] text-zinc-500 font-medium flex items-center gap-1">
+            <Sparkles className="w-3 h-3 text-[#0F6E45]" />
+            Hızlı Doldur:
+          </span>
           <button
             type="button"
             onClick={() => {
               onApplyPresetPersona('muhafazakar');
+              setValidationError(null);
               setStepMode('sorular');
             }}
-            className="px-2.5 py-1 text-[11px] rounded-lg border border-zinc-300 bg-white hover:border-zinc-900"
+            className="px-2.5 py-1 text-[11px] font-semibold rounded-lg border border-zinc-300 bg-white hover:border-zinc-900 transition-colors"
           >
             Muhafazakâr
           </button>
@@ -264,9 +352,10 @@ export const QuestionnaireSection: React.FC<QuestionnaireSectionProps> = ({
             type="button"
             onClick={() => {
               onApplyPresetPersona('sentez');
+              setValidationError(null);
               setStepMode('sorular');
             }}
-            className="px-2.5 py-1 text-[11px] rounded-lg border border-zinc-300 bg-white hover:border-zinc-900"
+            className="px-2.5 py-1 text-[11px] font-semibold rounded-lg border border-zinc-300 bg-white hover:border-zinc-900 transition-colors"
           >
             Dengeli
           </button>
@@ -274,68 +363,248 @@ export const QuestionnaireSection: React.FC<QuestionnaireSectionProps> = ({
             type="button"
             onClick={() => {
               onApplyPresetPersona('ataturkcu_sekuler');
+              setValidationError(null);
               setStepMode('sorular');
             }}
-            className="px-2.5 py-1 text-[11px] rounded-lg border border-zinc-300 bg-white hover:border-zinc-900"
+            className="px-2.5 py-1 text-[11px] font-semibold rounded-lg border border-zinc-300 bg-white hover:border-zinc-900 transition-colors"
           >
             Seküler
           </button>
         </div>
       </div>
 
-      {/* ADIM 1: SADECE KİŞİSEL BİLGİLER KARTI */}
-      {stepMode === 'profil' && (
-        <div className="bg-white rounded-[28px] border border-zinc-200/90 p-6 sm:p-8 shadow-sm space-y-6 animate-section-enter">
-          <div>
-            <h1 className="text-xl sm:text-2xl font-bold text-zinc-900">
-              Kişisel Bilgilerin
-            </h1>
-            <p className="text-xs sm:text-sm text-zinc-500 mt-1">
-              Profil kartında görünecek temel bilgilerini ve ilgi alanlarını seç.
-            </p>
+      {/* ADIM 1: UYGULAMAYA KAYIT OL (KİŞİSEL BİLGİLER & İLETİŞİM KANALI) */}
+      {stepMode === 'kayit' && (
+        <div className="bg-white rounded-[28px] border border-zinc-200/90 p-5 sm:p-8 shadow-sm space-y-6 animate-section-enter">
+          <div className="flex items-start justify-between gap-3 border-b border-zinc-100 pb-4">
+            <div>
+              <span className="text-[11px] font-bold uppercase tracking-wider text-[#0F6E45]">
+                ADIM 1 / 3 • GÜVENLİ KAYIT
+              </span>
+              <h1 className="text-xl sm:text-2xl font-bold text-zinc-900 mt-0.5">
+                Uygulamaya Kayıt Ol
+              </h1>
+              <p className="text-xs sm:text-sm text-zinc-500 mt-1">
+                Eşleşme algoritmasının seni doğru tanıması ve karşılıklı onayda iletişim kurulabilmesi için kişisel bilgilerini eksiksiz doldur.
+              </p>
+            </div>
+            <div className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-50 border border-emerald-200 text-[#0F6E45] text-[11px] font-bold shrink-0">
+              <Lock className="w-3.5 h-3.5" />
+              <span>AES-256-GCM TR Kasa</span>
+            </div>
           </div>
 
-          <div className="grid grid-cols-2 sm:grid-cols-3 gap-3.5">
+          {/* Kişisel Kimlik & İletişim Alanları */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
-              <label className="block text-xs font-semibold text-zinc-700 mb-1">
-                Adın
+              <label className="block text-xs font-bold text-zinc-800 mb-1">
+                İsim <span className="text-red-600">*</span>
               </label>
               <input
                 type="text"
                 maxLength={30}
+                autoComplete="given-name"
                 value={profile.firstName}
-                onChange={(e) =>
+                onChange={(e) => {
+                  setValidationError(null);
                   onUpdateProfile({
                     ...profile,
                     firstName: sanitizeUserText(e.target.value, 30),
-                  })
-                }
-                placeholder="Can"
-                className="w-full px-3.5 py-2.5 text-sm rounded-xl border border-zinc-300 bg-[#FAF8F5] font-medium"
+                  });
+                }}
+                placeholder="Örn: Can"
+                className="w-full px-3.5 py-2.5 text-sm rounded-xl border border-zinc-300 bg-[#FAF8F5] font-medium focus:outline-none focus:border-zinc-900"
               />
             </div>
 
             <div>
-              <label className="block text-xs font-semibold text-zinc-700 mb-1">
-                Yaşın
+              <label className="block text-xs font-bold text-zinc-800 mb-1">
+                Soy İsim <span className="text-red-600">*</span>{' '}
+                <span className="text-[10px] font-normal text-zinc-500">
+                  (Şifreli tutulur, gizlidir)
+                </span>
               </label>
               <input
-                type="number"
-                min={18}
-                max={75}
-                value={profile.age}
-                onChange={(e) =>
+                type="text"
+                maxLength={35}
+                autoComplete="family-name"
+                value={profile.lastName}
+                onChange={(e) => {
+                  setValidationError(null);
                   onUpdateProfile({
                     ...profile,
-                    age: Math.max(18, Math.min(75, Number(e.target.value) || 24)),
-                  })
-                }
-                className="w-full px-3.5 py-2.5 text-sm rounded-xl border border-zinc-300 bg-[#FAF8F5] font-medium"
+                    lastName: sanitizeUserText(e.target.value, 35),
+                  });
+                }}
+                placeholder="Örn: Yılmaz"
+                className="w-full px-3.5 py-2.5 text-sm rounded-xl border border-zinc-300 bg-[#FAF8F5] font-medium focus:outline-none focus:border-zinc-900"
               />
             </div>
 
             <div>
-              <label className="block text-xs font-semibold text-zinc-700 mb-1">
+              <label className="block text-xs font-bold text-zinc-800 mb-1">
+                Telefon Numarası <span className="text-red-600">*</span>
+              </label>
+              <input
+                type="tel"
+                maxLength={20}
+                autoComplete="tel"
+                value={profile.phoneNumber}
+                onChange={(e) => {
+                  setValidationError(null);
+                  const val = sanitizeUserText(e.target.value, 20);
+                  onUpdateProfile({
+                    ...profile,
+                    phoneNumber: val,
+                    whatsappNumber: val,
+                  });
+                }}
+                placeholder="0532 123 45 67"
+                className="w-full px-3.5 py-2.5 text-sm rounded-xl border border-zinc-300 bg-[#FAF8F5] font-medium focus:outline-none focus:border-zinc-900"
+              />
+            </div>
+
+            <div>
+              <label className="block text-xs font-bold text-zinc-800 mb-1">
+                Mail Adresi (E-posta) <span className="text-red-600">*</span>
+              </label>
+              <input
+                type="email"
+                maxLength={80}
+                autoComplete="email"
+                value={profile.email}
+                onChange={(e) => {
+                  setValidationError(null);
+                  onUpdateProfile({
+                    ...profile,
+                    email: sanitizeEmail(e.target.value),
+                  });
+                }}
+                placeholder="ornek@eposta.com"
+                className="w-full px-3.5 py-2.5 text-sm rounded-xl border border-zinc-300 bg-[#FAF8F5] font-medium focus:outline-none focus:border-zinc-900"
+              />
+            </div>
+
+            <div>
+              <label className="block text-xs font-bold text-zinc-800 mb-1">
+                Doğum Tarihi <span className="text-red-600">*</span>{' '}
+                <span className="text-[11px] font-semibold text-[#0F6E45]">
+                  ({calculateAgeFromBirthDate(profile.birthDate)} Yaş)
+                </span>
+              </label>
+              <input
+                type="date"
+                max="2008-12-31"
+                min="1950-01-01"
+                value={profile.birthDate}
+                onChange={(e) => {
+                  setValidationError(null);
+                  const nextBirth = e.target.value;
+                  onUpdateProfile({
+                    ...profile,
+                    birthDate: nextBirth,
+                    age: calculateAgeFromBirthDate(nextBirth),
+                  });
+                }}
+                className="w-full px-3.5 py-2.5 text-sm rounded-xl border border-zinc-300 bg-[#FAF8F5] font-medium focus:outline-none focus:border-zinc-900"
+              />
+            </div>
+
+            <div>
+              <label className="block text-xs font-bold text-zinc-800 mb-1">
+                Instagram Adresi{' '}
+                <span className="text-[11px] font-normal text-zinc-500">
+                  (Opsiyonel)
+                </span>
+              </label>
+              <input
+                type="text"
+                maxLength={35}
+                value={profile.instagramHandle}
+                onChange={(e) => {
+                  setValidationError(null);
+                  onUpdateProfile({
+                    ...profile,
+                    instagramHandle: sanitizeInstagramHandle(e.target.value),
+                  });
+                }}
+                placeholder="kullanici_adin (opsiyonel)"
+                className="w-full px-3.5 py-2.5 text-sm rounded-xl border border-zinc-300 bg-[#FAF8F5] font-medium focus:outline-none focus:border-zinc-900"
+              />
+            </div>
+
+            <div>
+              <label className="block text-xs font-bold text-zinc-800 mb-1">
+                Nerelisin? (Memleket) <span className="text-red-600">*</span>
+              </label>
+              <select
+                value={profile.hometown}
+                onChange={(e) => {
+                  setValidationError(null);
+                  onUpdateProfile({
+                    ...profile,
+                    hometown: e.target.value,
+                  });
+                }}
+                className="w-full px-3.5 py-2.5 text-sm rounded-xl border border-zinc-300 bg-[#FAF8F5] font-medium focus:outline-none focus:border-zinc-900"
+              >
+                {TURKIYE_ILLER.map((il) => (
+                  <option key={`memleket-${il}`} value={il}>
+                    {il}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-xs font-bold text-zinc-800 mb-1">
+                Şu An Yaşadığın Şehir <span className="text-red-600">*</span>
+              </label>
+              <select
+                value={profile.city}
+                onChange={(e) => {
+                  setValidationError(null);
+                  onUpdateProfile({
+                    ...profile,
+                    city: e.target.value,
+                  });
+                }}
+                className="w-full px-3.5 py-2.5 text-sm rounded-xl border border-zinc-300 bg-[#FAF8F5] font-medium focus:outline-none focus:border-zinc-900"
+              >
+                {TURKIYE_ILLER.map((il) => (
+                  <option key={`sehir-${il}`} value={il}>
+                    {il}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
+
+          {/* Cinsiyet, Boy ve Fiziksel Yapı */}
+          <div className="grid grid-cols-3 gap-3.5 pt-2 border-t border-zinc-100">
+            <div>
+              <label className="block text-xs font-bold text-zinc-800 mb-1">
+                Cinsiyetin
+              </label>
+              <select
+                value={profile.gender}
+                onChange={(e) => {
+                  const g = e.target.value as 'erkek' | 'kadin';
+                  onUpdateProfile({
+                    ...profile,
+                    gender: g,
+                    lookingFor: g === 'erkek' ? 'kadin' : 'erkek',
+                  });
+                }}
+                className="w-full px-3 py-2.5 text-sm rounded-xl border border-zinc-300 bg-[#FAF8F5] font-medium"
+              >
+                <option value="erkek">Erkek</option>
+                <option value="kadin">Kadın</option>
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-xs font-bold text-zinc-800 mb-1">
                 Boyun (cm)
               </label>
               <input
@@ -349,12 +618,12 @@ export const QuestionnaireSection: React.FC<QuestionnaireSectionProps> = ({
                     heightCm: Math.max(140, Math.min(220, Number(e.target.value) || 175)),
                   })
                 }
-                className="w-full px-3.5 py-2.5 text-sm rounded-xl border border-zinc-300 bg-[#FAF8F5] font-medium"
+                className="w-full px-3 py-2.5 text-sm rounded-xl border border-zinc-300 bg-[#FAF8F5] font-medium"
               />
             </div>
 
             <div>
-              <label className="block text-xs font-semibold text-zinc-700 mb-1">
+              <label className="block text-xs font-bold text-zinc-800 mb-1">
                 Fiziksel Yapın
               </label>
               <select
@@ -365,7 +634,7 @@ export const QuestionnaireSection: React.FC<QuestionnaireSectionProps> = ({
                     bodyType: e.target.value,
                   })
                 }
-                className="w-full px-3.5 py-2.5 text-sm rounded-xl border border-zinc-300 bg-[#FAF8F5] font-medium"
+                className="w-full px-3 py-2.5 text-sm rounded-xl border border-zinc-300 bg-[#FAF8F5] font-medium"
               >
                 {AVAILABLE_BODY_TYPES.map((bt) => (
                   <option key={bt} value={bt}>
@@ -374,54 +643,67 @@ export const QuestionnaireSection: React.FC<QuestionnaireSectionProps> = ({
                 ))}
               </select>
             </div>
+          </div>
 
+          {/* Eşleşme Sonrası İletişim Kanalı Tercihi (Telefon/WhatsApp, Mail, Instagram bağlantısı) */}
+          <div className="p-4 rounded-2xl bg-[#FAF8F5] border border-zinc-200/90 space-y-3">
             <div>
-              <label className="block text-xs font-semibold text-zinc-700 mb-1">
-                Şehir
-              </label>
-              <input
-                type="text"
-                maxLength={40}
-                value={profile.city}
-                onChange={(e) =>
-                  onUpdateProfile({
-                    ...profile,
-                    city: sanitizeUserText(e.target.value, 40),
-                  })
-                }
-                placeholder="İzmir"
-                className="w-full px-3.5 py-2.5 text-sm rounded-xl border border-zinc-300 bg-[#FAF8F5] font-medium"
-              />
+              <h2 className="text-xs sm:text-sm font-bold text-zinc-900">
+                Eşleşme Olduğunda Nasıl İletişim Kurulsun?
+              </h2>
+              <p className="text-[11px] sm:text-xs text-zinc-500 mt-0.5">
+                Yukarıda girdiğin numara, mail ve Instagram bilgileri yalnızca karşılıklı eşleşme sağlandığında, aşağıda seçtiğin kanal üzerinden karşı tarafa açılır:
+              </p>
             </div>
 
-            <div>
-              <label className="block text-xs font-semibold text-zinc-700 mb-1">
-                Cinsiyetin
-              </label>
-              <select
-                value={profile.gender}
-                onChange={(e) => {
-                  const g = e.target.value as 'erkek' | 'kadin';
-                  onUpdateProfile({
-                    ...profile,
-                    gender: g,
-                    lookingFor: g === 'erkek' ? 'kadin' : 'erkek',
-                  });
-                }}
-                className="w-full px-3.5 py-2.5 text-sm rounded-xl border border-zinc-300 bg-[#FAF8F5] font-medium"
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+              <button
+                type="button"
+                onClick={() => handleSelectContactPlatform('whatsapp')}
+                className={`p-3 rounded-xl border text-xs font-bold flex items-center justify-center gap-2 transition-all ${
+                  profile.preferredContactPlatform === 'whatsapp'
+                    ? 'border-[#0F6E45] bg-[#0F6E45] text-white shadow-sm'
+                    : 'border-zinc-300 bg-white text-zinc-800 hover:border-zinc-500'
+                }`}
               >
-                <option value="erkek">Erkek</option>
-                <option value="kadin">Kadın</option>
-              </select>
+                <Phone className="w-4 h-4 shrink-0" />
+                <span>Telefon / WhatsApp</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => handleSelectContactPlatform('instagram')}
+                className={`p-3 rounded-xl border text-xs font-bold flex items-center justify-center gap-2 transition-all ${
+                  profile.preferredContactPlatform === 'instagram'
+                    ? 'border-[#0F6E45] bg-[#0F6E45] text-white shadow-sm'
+                    : 'border-zinc-300 bg-white text-zinc-800 hover:border-zinc-500'
+                }`}
+              >
+                <Instagram className="w-4 h-4 shrink-0" />
+                <span>Instagram Adresi</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => handleSelectContactPlatform('email')}
+                className={`p-3 rounded-xl border text-xs font-bold flex items-center justify-center gap-2 transition-all ${
+                  profile.preferredContactPlatform === 'email'
+                    ? 'border-[#0F6E45] bg-[#0F6E45] text-white shadow-sm'
+                    : 'border-zinc-300 bg-white text-zinc-800 hover:border-zinc-500'
+                }`}
+              >
+                <Mail className="w-4 h-4 shrink-0" />
+                <span>Mail Adresi</span>
+              </button>
             </div>
           </div>
 
           {/* Kişisel Özellik Etiketleri */}
           <div>
             <label className="block text-xs font-bold text-zinc-800 mb-2">
-              Kişisel Özelliklerin
+              Seni Tanımlayan Özellikler
             </label>
-            <div className="flex flex-wrap gap-2">
+            <div className="flex flex-wrap gap-1.5">
               {AVAILABLE_CHARACTER_TRAITS.map((trait) => {
                 const selected = profile.characterTraits.includes(trait);
                 return (
@@ -447,7 +729,7 @@ export const QuestionnaireSection: React.FC<QuestionnaireSectionProps> = ({
             <label className="block text-xs font-bold text-zinc-800 mb-2">
               İlgi Alanların
             </label>
-            <div className="flex flex-wrap gap-2">
+            <div className="flex flex-wrap gap-1.5">
               {AVAILABLE_INTERESTS.map((interest) => {
                 const selected = profile.interests.includes(interest);
                 return (
@@ -468,36 +750,93 @@ export const QuestionnaireSection: React.FC<QuestionnaireSectionProps> = ({
             </div>
           </div>
 
+          {/* KVKK ve Türkiye Yerel Veri Saklama Onayı */}
+          <div className="p-3.5 rounded-2xl bg-zinc-50 border border-zinc-200 flex items-start gap-3">
+            <input
+              id="kvkk-register-check"
+              type="checkbox"
+              checked={kvkkApproved}
+              onChange={(e) => {
+                setValidationError(null);
+                onToggleKvkkApproved(e.target.checked);
+              }}
+              className="mt-1 w-4 h-4 accent-[#0F6E45] rounded cursor-pointer shrink-0"
+            />
+            <div className="text-xs text-zinc-600 leading-relaxed">
+              <label htmlFor="kvkk-register-check" className="font-semibold text-zinc-900 cursor-pointer">
+                6698 Sayılı KVKK Açık Rıza ve Türkiye İçi Şifreli Veri Saklama Onayı:
+              </label>{' '}
+              Kişisel bilgilerimin (isim, soy isim, telefon, e-posta, doğum tarihi) Türkiye sınırları içindeki TIER-III sunucularda AES-256-GCM şifrelemesiyle korunmasını kabul ediyorum.{' '}
+              <button
+                type="button"
+                onClick={onRequestKvkkModal}
+                className="text-[#0F6E45] font-bold underline hover:text-emerald-800"
+              >
+                Metni İncele
+              </button>
+            </div>
+          </div>
+
+          {validationError && (
+            <div className="p-3.5 rounded-xl bg-red-50 border border-red-200 text-xs text-red-900 font-medium flex items-center gap-2">
+              <AlertCircle className="w-4 h-4 text-[#B90E0A] shrink-0" />
+              <span>{validationError}</span>
+            </div>
+          )}
+
           <button
             type="button"
-            onClick={() => {
-              setStepMode('sorular');
-              window.scrollTo({ top: 0, behavior: 'smooth' });
-            }}
-            className="w-full py-3.5 px-6 rounded-2xl bg-[#0F6E45] hover:bg-[#0b5736] text-white text-sm font-bold flex items-center justify-center gap-2 transition-colors"
+            disabled={isSealingVault}
+            onClick={handleCompleteRegistrationAndStartQuestions}
+            className="w-full py-4 px-6 rounded-2xl bg-[#0F6E45] hover:bg-[#0b5736] disabled:opacity-60 text-white text-sm font-bold flex items-center justify-center gap-2 transition-colors shadow-sm"
           >
-            <span>Kaydet ve Sorulara Geç</span>
+            <ShieldCheck className="w-4 h-4" />
+            <span>
+              {isSealingVault
+                ? 'AES-256-GCM Kasası Mühürleniyor...'
+                : 'Kaydı Tamamla ve 9 Soruya Başla'}
+            </span>
             <ArrowRight className="w-4 h-4" />
           </button>
         </div>
       )}
 
-      {/* ADIM 2: SADE SORU KARTI */}
+      {/* ADIM 2: 9 SORULUK UYUM VE KIRMIZI ÇİZGİ TESTİ */}
       {stepMode === 'sorular' && (
         <div className="space-y-4 animate-section-enter">
-          {/* İlerleme Çubuğu */}
-          <div>
-            <div className="flex items-center justify-between text-xs font-semibold text-zinc-600 mb-1.5">
+          {/* 9 Soruluk Numaralı İlerleme Çubuğu */}
+          <div className="bg-white rounded-2xl border border-zinc-200/90 p-3.5 sm:p-4 shadow-sm">
+            <div className="flex items-center justify-between text-xs font-bold text-zinc-700 mb-2">
               <span>
-                Soru {currentIndex + 1} / {QUESTIONS.length}
+                ADIM 2 / 3 • SORU {currentIndex + 1} / {QUESTIONS.length}
               </span>
-              <span>%{progressPercent}</span>
+              <span className="text-[#0F6E45]">%{progressPercent} Tamamlandı</span>
             </div>
-            <div className="w-full h-2 bg-zinc-200 rounded-full overflow-hidden">
-              <div
-                className="h-full bg-[#0F6E45] transition-all duration-300"
-                style={{ width: `${progressPercent}%` }}
-              />
+
+            <div className="grid grid-cols-9 gap-1.5">
+              {QUESTIONS.map((q, idx) => {
+                const isDone = Boolean(answers[q.id]?.selectedOptionId);
+                const isCurrent = idx === currentIndex;
+                return (
+                  <button
+                    key={q.id}
+                    type="button"
+                    onClick={() => {
+                      setValidationError(null);
+                      setCurrentIndex(idx);
+                    }}
+                    className={`h-8 rounded-lg text-xs font-bold transition-all flex items-center justify-center ${
+                      isCurrent
+                        ? 'bg-zinc-900 text-white shadow-sm'
+                        : isDone
+                        ? 'bg-[#E6F4EC] text-[#0F6E45] border border-emerald-200'
+                        : 'bg-zinc-100 text-zinc-500 hover:bg-zinc-200'
+                    }`}
+                  >
+                    {idx + 1}
+                  </button>
+                );
+              })}
             </div>
           </div>
 
@@ -507,6 +846,14 @@ export const QuestionnaireSection: React.FC<QuestionnaireSectionProps> = ({
             className="bg-white rounded-[28px] border border-zinc-200/90 p-6 sm:p-8 shadow-sm space-y-7 animate-question-next"
           >
             <div>
+              <div className="flex items-center justify-between gap-2 mb-2">
+                <span className="text-[11px] font-bold uppercase tracking-wider text-[#0F6E45]">
+                  SORU {currentQuestion.code} / 09 • {currentQuestion.categoryLabel}
+                </span>
+                <span className="text-[11px] text-zinc-400 font-medium">
+                  Zorunlu Seçim
+                </span>
+              </div>
               <h2 className="text-xl sm:text-2xl font-bold text-zinc-900 leading-snug">
                 {currentQuestion.prompt}
               </h2>
@@ -713,96 +1060,6 @@ export const QuestionnaireSection: React.FC<QuestionnaireSectionProps> = ({
               );
             })}
 
-            {/* Son Soruda WhatsApp / Instagram Tercihi */}
-            {currentIndex === QUESTIONS.length - 1 && (
-              <div className="pt-6 border-t border-zinc-200 space-y-4 animate-section-enter">
-                <h3 className="text-base sm:text-lg font-bold text-zinc-900 leading-snug">
-                  Eğer profiline uyan birisi seninle iletişime geçmek isterse ve sen de o kişiyle iletişime geçmek istersen, WhatsApp üzerinden mi yoksa Instagram üzerinden mi iletişime geçilsin?
-                </h3>
-
-                <div className="grid grid-cols-3 gap-2.5">
-                  <button
-                    type="button"
-                    onClick={() => handleSelectContactPlatform('whatsapp')}
-                    className={`p-3 rounded-xl border text-xs sm:text-sm font-bold flex items-center justify-center gap-2 transition-all ${
-                      profile.contactPreferenceConfirmed &&
-                      profile.preferredContactPlatform === 'whatsapp'
-                        ? 'border-[#0F6E45] bg-[#0F6E45] text-white'
-                        : 'border-zinc-300 bg-white text-zinc-800'
-                    }`}
-                  >
-                    <Phone className="w-4 h-4 shrink-0" />
-                    <span>WhatsApp</span>
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => handleSelectContactPlatform('instagram')}
-                    className={`p-3 rounded-xl border text-xs sm:text-sm font-bold flex items-center justify-center gap-2 transition-all ${
-                      profile.contactPreferenceConfirmed &&
-                      profile.preferredContactPlatform === 'instagram'
-                        ? 'border-[#0F6E45] bg-[#0F6E45] text-white'
-                        : 'border-zinc-300 bg-white text-zinc-800'
-                    }`}
-                  >
-                    <Instagram className="w-4 h-4 shrink-0" />
-                    <span>Instagram</span>
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => handleSelectContactPlatform('both')}
-                    className={`p-3 rounded-xl border text-xs sm:text-sm font-bold flex items-center justify-center transition-all ${
-                      profile.contactPreferenceConfirmed &&
-                      profile.preferredContactPlatform === 'both'
-                        ? 'border-[#0F6E45] bg-[#0F6E45] text-white'
-                        : 'border-zinc-300 bg-white text-zinc-800'
-                    }`}
-                  >
-                    <span>Her İkisi</span>
-                  </button>
-                </div>
-
-                {profile.contactPreferenceConfirmed && (
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    {(profile.preferredContactPlatform === 'whatsapp' ||
-                      profile.preferredContactPlatform === 'both') && (
-                      <input
-                        type="tel"
-                        maxLength={20}
-                        value={profile.whatsappNumber}
-                        onChange={(e) =>
-                          onUpdateProfile({
-                            ...profile,
-                            whatsappNumber: sanitizeUserText(e.target.value, 20),
-                          })
-                        }
-                        placeholder="WhatsApp No (0532...)"
-                        className="w-full px-3.5 py-2.5 rounded-xl border border-zinc-300 bg-[#FAF8F5] text-sm"
-                      />
-                    )}
-
-                    {(profile.preferredContactPlatform === 'instagram' ||
-                      profile.preferredContactPlatform === 'both') && (
-                      <input
-                        type="text"
-                        maxLength={35}
-                        value={profile.instagramHandle}
-                        onChange={(e) =>
-                          onUpdateProfile({
-                            ...profile,
-                            instagramHandle: sanitizeInstagramHandle(e.target.value),
-                          })
-                        }
-                        placeholder="Instagram kullanıcı adın"
-                        className="w-full px-3.5 py-2.5 rounded-xl border border-zinc-300 bg-[#FAF8F5] text-sm"
-                      />
-                    )}
-                  </div>
-                )}
-              </div>
-            )}
-
             {validationError && (
               <div className="p-3.5 rounded-xl bg-red-50 border border-red-200 text-xs text-red-900 font-medium flex items-center gap-2">
                 <AlertCircle className="w-4 h-4 text-[#B90E0A] shrink-0" />
@@ -814,22 +1071,24 @@ export const QuestionnaireSection: React.FC<QuestionnaireSectionProps> = ({
             <div className="pt-4 border-t border-zinc-100 flex items-center justify-between gap-3">
               <button
                 type="button"
-                onClick={handleGoPrev}
+                onClick={handleGoPrevQuestion}
                 className="px-4 py-3 rounded-xl border border-zinc-300 text-zinc-700 hover:bg-zinc-50 text-xs sm:text-sm font-semibold flex items-center gap-1.5"
               >
                 <ArrowLeft className="w-4 h-4" />
-                <span>Geri</span>
+                <span>
+                  {currentIndex === 0 ? 'Kayıt Bilgilerine Dön' : 'Önceki Soru'}
+                </span>
               </button>
 
               <button
                 type="button"
-                onClick={handleGoNext}
-                className="px-6 py-3 rounded-xl bg-[#0F6E45] hover:bg-[#0b5736] text-white text-xs sm:text-sm font-bold flex items-center gap-2 transition-colors"
+                onClick={handleGoNextQuestion}
+                className="px-6 py-3 rounded-xl bg-[#0F6E45] hover:bg-[#0b5736] text-white text-xs sm:text-sm font-bold flex items-center justify-center gap-2 transition-colors shadow-sm"
               >
                 <span>
                   {currentIndex === QUESTIONS.length - 1
-                    ? 'Eşleşmeleri Gör'
-                    : 'Devam Et'}
+                    ? '9 Soruyu Bitir → Adli Sicil Adımına Geç'
+                    : `Sonraki Soru (${currentIndex + 2}/9)`}
                 </span>
                 <ArrowRight className="w-4 h-4" />
               </button>

@@ -1,3 +1,5 @@
+import { EncryptedIdentityEnvelope } from '../utils/cryptoVault';
+
 export type QuestionCategory =
   | 'inanc_cemaat'
   | 'siyaset_dunya_gorusu'
@@ -62,27 +64,34 @@ export interface UserAnswer {
   excludedRedIds: string[];
 }
 
-export type ContactPlatformChoice = 'whatsapp' | 'instagram' | 'both';
+export type ContactPlatformChoice = 'whatsapp' | 'instagram' | 'email';
 
 export interface UserSelfProfile {
   aliasCode: string;
-  firstName: string; // Örn: "Can", "Berke", "Zeynep"
+  firstName: string; // İsim (Zorunlu)
+  lastName: string; // Soy İsim (Zorunlu - Şifreli Kasa)
+  phoneNumber: string; // Telefon Numarası (Zorunlu)
+  email: string; // E-posta Adresi (Zorunlu)
+  birthDate: string; // Doğum Tarihi (YYYY-MM-DD - Zorunlu)
+  hometown: string; // Nereli Olduğu / Memleket (Zorunlu)
+  city: string; // Yaşadığı Şehir (Zorunlu)
   gender: 'erkek' | 'kadin';
   lookingFor: 'kadin' | 'erkek';
   age: number;
-  heightCm: number; // Örn: 187
-  bodyType: string; // Örn: "Orta yapılı", "Atletik / Fit", "İnce yapılı"
-  city: string;
+  heightCm: number;
+  bodyType: string;
   profession: string;
-  personaTitle: string; // Örn: "Özgür Yolcu"
+  personaTitle: string;
   relationshipDynamic: string;
   bio: string;
-  characterTraits: string[]; // Örn: ["Dinde esnek", "Bağımsız", "Açık sözlü", "Sabırlı", "Titiz ve bakımlı", "Düzenli", "Sakin mizaçlı", "Anlayışlı"]
-  interests: string[]; // Örn: ["Film / dizi", "Seyahat", "Tarih / müze gezmek", "Arkadaşlarla sohbet"]
-  preferredContactPlatform: ContactPlatformChoice;
+  characterTraits: string[];
+  interests: string[];
+  preferredContactPlatform: ContactPlatformChoice; // 'whatsapp' | 'instagram' | 'email'
   whatsappNumber: string;
-  instagramHandle: string;
+  instagramHandle: string; // Opsiyonel (İletişim kanalı Instagram seçilmediyse)
   contactPreferenceConfirmed: boolean;
+  registrationCompleted: boolean;
+  encryptedEnvelope?: EncryptedIdentityEnvelope;
 }
 
 export interface KvkkConsentRecord {
@@ -96,12 +105,14 @@ export interface KvkkConsentRecord {
 
 export type CriminalRecordStatus =
   | 'unverified'
+  | 'not_uploaded'
   | 'clean'
   | 'has_record'
   | 'invalid_document';
 
 export interface CriminalRecordAnalysis {
   status: CriminalRecordStatus;
+  uploaded: boolean; // Adli sicil belgesi yüklendi mi? (true: Yüklendi, false: Yüklenmedi)
   fileName?: string;
   fileSizeKB?: number;
   documentDate?: string;
@@ -142,8 +153,11 @@ export interface CandidateProfile {
   id: string;
   poolCode: string;
   firstName: string;
+  lastNameInitial: string; // Örn: "Y."
   gender: 'kadin' | 'erkek';
   age: number;
+  birthYear: number;
+  hometown: string; // Nereli olduğu (Örn: "Trabzon", "İzmir", "Kayseri")
   heightCm: number;
   bodyType: string;
   city: string;
@@ -157,12 +171,14 @@ export interface CandidateProfile {
   preferredContactPlatform: ContactPlatformChoice;
   whatsappNumber: string;
   instagramHandle: string;
+  emailAddress: string;
   encryptedContactHandle: string;
   criminalRecord: {
+    uploaded: boolean; // true = Yüklendi, false = Yüklenmedi
     verified: boolean;
     clean: boolean;
-    verifiedAt: string;
-    barcodeMasked: string;
+    verifiedAt?: string;
+    barcodeMasked?: string;
     profileAutoStamp: string;
     recordSummary?: string;
   };
@@ -199,7 +215,7 @@ export interface MatchAnalysisResult {
   blockedReasons: string[];
   tier: MatchTier;
   verdictBadge: string;
-  topPercentileLabel: string; // Örn: "adaylarınız arasında ilk %2"
+  topPercentileLabel: string;
   verdictHeadline: string;
   verdictAdvice: string;
   firstMessageIdea: string;

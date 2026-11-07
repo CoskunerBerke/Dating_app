@@ -283,12 +283,13 @@ export async function analyzeEdevletCriminalRecordText(
   if (!hasOfficialHeader && !adliSicilKaydiYoktur && !explicitKayitVardir) {
     return {
       status: 'invalid_document',
+      uploaded: false,
       fileName,
       fileSizeKB,
       adliSicilKaydiYoktur: false,
       arsivKaydiYoktur: false,
       hasActiveOrArchiveRecord: false,
-      profileAutoStamp: 'Adli Sicil Belgesi Henüz Doğrulanmadı',
+      profileAutoStamp: 'Adli Sicil Belgesi: Yüklenmedi',
       rawPdfPurged: true,
       verifiedAt: new Date().toLocaleString('tr-TR'),
       verificationHash: hash,
@@ -300,11 +301,12 @@ export async function analyzeEdevletCriminalRecordText(
   }
 
   if (explicitKayitVardir || !adliSicilKaydiYoktur) {
-    const autoStamp = `DİKKAT — e-Devlet Sorgusunda Adli Sicil Kaydı Mevcuttur (${
+    const autoStamp = `Adli Sicil Belgesi: Yüklendi — DİKKAT: Adli Sicil Kaydı Mevcuttur (${
       extractedRecordDetails || 'Adli Sicil Kaydı Vardır'
     })`;
     return {
       status: 'has_record',
+      uploaded: true,
       fileName,
       fileSizeKB,
       barcodeNumber: rawBarcode,
@@ -328,18 +330,19 @@ export async function analyzeEdevletCriminalRecordText(
       rawPdfPurged: true,
       verifiedAt: new Date().toLocaleString('tr-TR'),
       verificationHash: hash,
-      summaryTitle: 'Adli Sicil Kaydı Tespit Edildi ve Profilinize Otomatik Yazdırıldı',
+      summaryTitle: 'Adli Sicil Belgesi Yüklendi — Adli Sicil Kaydı Tespit Edildi',
       summaryDetail:
-        'e-Devlet sorgulamasında adli sicil kaydı tespit edildi. Sistem kuralları gereği bu kayıt profilinize otomatik olarak işlenmiştir. Eşleştiğiniz kişilerin sizinle iletişime geçebilmesi için bu durumu ekranda görüp onaylaması gerekmektedir.',
+        'e-Devlet sorgulamasında adli sicil kaydı tespit edildi. Sistem kuralları gereği bu kayıt profilinize otomatik olarak işlenmiştir.',
       detectedClauses,
     };
   }
 
-  const cleanStamp = `e-Devlet Doğrulandı: Adli Sicil Kaydı Yoktur (Barkod: ${
+  const cleanStamp = `Adli Sicil Belgesi: Yüklendi — Kayıt Yoktur (Barkod: ${
     rawBarcode || maskedBarcode
   })`;
   return {
     status: 'clean',
+    uploaded: true,
     fileName,
     fileSizeKB,
     barcodeNumber: rawBarcode,
@@ -362,10 +365,26 @@ export async function analyzeEdevletCriminalRecordText(
     rawPdfPurged: true,
     verifiedAt: new Date().toLocaleString('tr-TR'),
     verificationHash: hash,
-    summaryTitle: 'e-Devlet Barkodlu Adli Sicil Sorgusu Doğrulandı (Kayıt Yoktur)',
+    summaryTitle: 'Adli Sicil Belgesi Yüklendi (e-Devlet Doğrulandı: Kayıt Yoktur)',
     summaryDetail:
-      'Sağ üstteki ADB barkod kodu ve MERNİS kimlik bilgileriyle yapılan sorgulamada "YUKARIDA KİMLİK BİLGİLERİ BULUNAN KİŞİNİN ADLİ SİCİL KAYDI YOKTUR." sonucu doğrulandı ve profilinize otomatik olarak işlendi.',
+      'Sağ üstteki ADB barkod kodu ve MERNİS kimlik bilgileriyle yapılan sorgulamada "YUKARIDA KİMLİK BİLGİLERİ BULUNAN KİŞİNİN ADLİ SİCİL KAYDI YOKTUR." sonucu doğrulandı ve profilinize "Adli Sicil Belgesi: Yüklendi" olarak işlendi.',
     detectedClauses,
+  };
+}
+
+export function createNotUploadedCriminalRecordState(): CriminalRecordAnalysis {
+  return {
+    status: 'not_uploaded',
+    uploaded: false,
+    adliSicilKaydiYoktur: false,
+    arsivKaydiYoktur: false,
+    hasActiveOrArchiveRecord: false,
+    profileAutoStamp: 'Adli Sicil Belgesi: Yüklenmedi',
+    rawPdfPurged: true,
+    summaryTitle: 'Adli Sicil Belgesi: Yüklenmedi',
+    summaryDetail:
+      'Adli sicil belgesi yüklenmedi. Eşleştiğiniz adayların ekranında profilinizde açıkça "Adli Sicil Belgesi: Yüklenmedi" ibaresi görünür.',
+    detectedClauses: ['Kullanıcı adli sicil belgesi yüklemeden devam etmeyi seçti.'],
   };
 }
 

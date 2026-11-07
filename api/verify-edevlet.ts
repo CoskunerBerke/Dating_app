@@ -1,5 +1,22 @@
 // Vercel Serverless Function: Canlı e-Devlet Barkodlu Belge Doğrulama Katmanı
-// Sıfır Veri Saklama (Zero-Retention): T.C. Kimlik No veya Belge İçeriği Loglanmaz ve Kaydedilmez.
+// Sıfır Veri Saklama (Zero-Retention) + OWASP Rate-Limit & Prototype Pollution Koruması
+
+const ipWindowMap = new Map<string, { count: number; resetAt: number }>();
+const MAX_REQ_PER_MIN = 15;
+
+function checkRateLimit(ip: string): boolean {
+  const now = Date.now();
+  const entry = ipWindowMap.get(ip);
+  if (!entry || now > entry.resetAt) {
+    ipWindowMap.set(ip, { count: 1, resetAt: now + 60_000 });
+    return true;
+  }
+  if (entry.count >= MAX_REQ_PER_MIN) {
+    return false;
+  }
+  entry.count += 1;
+  return true;
+}
 
 function verifyTurkishIdChecksum(tc: string): boolean {
   if (!/^[1-9][0-9]{10}$/.test(tc)) return false;
@@ -13,20 +30,51 @@ function verifyTurkishIdChecksum(tc: string): boolean {
 }
 
 export default async function handler(req: any, res: any) {
-  // Sıkı Güvenlik Başlıkları (Sızıntı ve Önbellek Önleme)
-  res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate, private');
+  // Sıkı Güvenlik Başlıkları (Sızıntı, Clickjacking ve Önbellek Önleme)
+  res.setHeader(
+    'Cache-Control',
+    'no-store, no-cache, must-revalidate, proxy-revalidate, private'
+  );
   res.setHeader('Pragma', 'no-cache');
   res.setHeader('Expires', '0');
   res.setHeader('X-Content-Type-Options', 'nosniff');
   res.setHeader('X-Frame-Options', 'DENY');
   res.setHeader('Referrer-Policy', 'no-referrer');
+  res.setHeader('Cross-Origin-Resource-Policy', 'same-origin');
 
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Yalnızca POST isteği kabul edilir.' });
   }
 
+  // IP Rate-Limiting (Brute-force ve Bot Saldırılarına Karşı)
+  const clientIp =
+    String(req.headers?.['x-forwarded-for'] || req.socket?.remoteAddress || 'local')
+      .split(',')[0]
+      .trim() || 'local';
+
+  if (!checkRateLimit(clientIp)) {
+    return res.status(429).json({
+      ok: false,
+      error: 'Çok fazla sorgu denemesi yapıldı. Lütfen 1 dakika bekleyiniz.',
+    });
+  }
+
   try {
+    const rawStr = typeof req.body === 'string' ? req.body : JSON.stringify(req.body || {});
+    if (rawStr.length > 2048) {
+      return res.status(413).json({ ok: false, error: 'İstek boyutu sınırı aşıldı.' });
+    }
+
     const body = typeof req.body === 'string' ? JSON.parse(req.body) : req.body || {};
+
+    // Prototype Pollution ve Beklenmeyen Alan Koruması
+    const allowedKeys = new Set(['barcode', 'tcKimlikNo']);
+    for (const key of Object.keys(body)) {
+      if (!allowedKeys.has(key)) {
+        return res.status(400).json({ ok: false, error: 'Geçersiz istek parametresi.' });
+      }
+    }
+
     const rawBarcode = String(body.barcode || '')
       .toUpperCase()
       .replace(/[^A-Z0-9-]/g, '')
@@ -43,7 +91,7 @@ export default async function handler(req: any, res: any) {
       return res.status(400).json({
         ok: false,
         error:
-          'Geçersiz barkod formatı. e-Devlet Adli Sicil belgesinin sağ üst köşesindeki ADB ile başlayan (örn. ADB02889192793) barkod kodunu giriniz.',
+          'Geçersiz barkod formatı. e-Devlet Adli Sicil belgesinin sağ üst köşesindeki ADB ile başlayan barkod kodunu giriniz.',
       });
     }
 
@@ -56,8 +104,8 @@ export default async function handler(req: any, res: any) {
       });
     }
 
-    // Canlı e-Devlet Kapısı (turkiye.gov.tr/belge-dogrulama) Bağlantı Kontrolü
-    let edevletGatewayStatus: 'connected' | 'captcha_protected' | 'unreachable' = 'unreachable';
+    let edevletGatewayStatus: 'connected' | 'captcha_protected' | 'unreachable' =
+      'unreachable';
     let edevletHttpCode = 0;
 
     try {
@@ -80,7 +128,6 @@ export default async function handler(req: any, res: any) {
       clearTimeout(timeout);
 
       if (initResp.ok && htmlText.includes('sorgulananBarkod')) {
-        // Token yakala ve barkod ön sorgusu gönder
         const tokenMatch = htmlText.match(/name="token"\s+value="([^"]+)"/i);
         const setCookie = initResp.headers.get('set-cookie') || '';
 
@@ -128,13 +175,15 @@ export default async function handler(req: any, res: any) {
     const maskedBarcode = `${rawBarcode.slice(0, 8)}****`;
     const maskedTc = rawTc ? `${rawTc.slice(0, 3)}******${rawTc.slice(9, 11)}` : '100******34';
 
-    // KVKK Zero-Retention: T.C. Kimlik Numarasını bellekten temizle
+    // KVKK Zero-Retention: T.C. Kimlik Numarasını bellekten sil
     rawTc = '';
 
     return res.status(200).json({
       ok: true,
       barcodeVerified: true,
-      institutionCode: isAdbFormat ? 'ADB (T.C. Adalet Bakanlığı Adli Sicil)' : 'ARK/ASK (Adli Sicil)',
+      institutionCode: isAdbFormat
+        ? 'ADB (T.C. Adalet Bakanlığı Adli Sicil)'
+        : 'ARK/ASK (Adli Sicil)',
       edevletGatewayStatus,
       edevletHttpCode,
       mernisChecksumValid: mernisValid,

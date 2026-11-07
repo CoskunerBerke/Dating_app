@@ -1,11 +1,11 @@
 import React from 'react';
-import { ShieldCheck } from 'lucide-react';
+import { ShieldCheck, FileWarning, Lock } from 'lucide-react';
 
 interface NavbarProps {
-  activeSection: 'hero' | 'anket' | 'sabika' | 'eslesmeler' | 'kvkk';
-  onNavigate: (section: 'hero' | 'anket' | 'sabika' | 'eslesmeler' | 'kvkk') => void;
+  activeSection: 'anket' | 'sabika' | 'eslesmeler' | 'kvkk';
+  onNavigate: (section: 'anket' | 'sabika' | 'eslesmeler' | 'kvkk') => void;
   kvkkApproved: boolean;
-  criminalClean: boolean;
+  criminalUploaded: boolean;
   completedQuestionsCount: number;
   totalQuestionsCount: number;
 }
@@ -13,19 +13,21 @@ interface NavbarProps {
 export const Navbar: React.FC<NavbarProps> = ({
   activeSection,
   onNavigate,
-  criminalClean,
+  criminalUploaded,
   completedQuestionsCount,
   totalQuestionsCount,
 }) => {
   const navItems: {
-    id: 'hero' | 'anket' | 'sabika' | 'eslesmeler' | 'kvkk';
+    id: 'anket' | 'sabika' | 'eslesmeler' | 'kvkk';
     label: string;
   }[] = [
-    { id: 'hero', label: 'Ana Sayfa' },
-    { id: 'anket', label: `Sorular (${completedQuestionsCount}/${totalQuestionsCount})` },
-    { id: 'sabika', label: 'Adli Sicil' },
-    { id: 'eslesmeler', label: 'Eşleşmeler' },
-    { id: 'kvkk', label: 'KVKK' },
+    {
+      id: 'anket',
+      label: `1. Kayıt & 9 Soru (${completedQuestionsCount}/${totalQuestionsCount})`,
+    },
+    { id: 'sabika', label: '2. Adli Sicil Yükle' },
+    { id: 'eslesmeler', label: '3. Eşleşmeler' },
+    { id: 'kvkk', label: 'KVKK & Güvenlik' },
   ];
 
   return (
@@ -34,15 +36,20 @@ export const Navbar: React.FC<NavbarProps> = ({
         {/* Sol: Logo */}
         <button
           type="button"
-          onClick={() => onNavigate('hero')}
+          onClick={() => onNavigate('anket')}
           className="flex items-center gap-2.5 shrink-0"
         >
           <div className="w-9 h-9 rounded-xl bg-[#0F6E45] text-white flex items-center justify-center font-serif text-base font-bold">
             M
           </div>
-          <span className="font-serif text-lg font-bold tracking-tight text-zinc-900">
-            Mizan
-          </span>
+          <div className="text-left">
+            <span className="font-serif text-lg font-bold tracking-tight text-zinc-900 block leading-none">
+              Mizan
+            </span>
+            <span className="text-[10px] font-semibold text-zinc-500 block mt-0.5">
+              Güvenli Tanışma Uygulaması
+            </span>
+          </div>
         </button>
 
         {/* Orta: Masaüstü Sekmeler */}
@@ -63,21 +70,27 @@ export const Navbar: React.FC<NavbarProps> = ({
           ))}
         </nav>
 
-        {/* Sağ: Durum & Başla */}
+        {/* Sağ: Adli Sicil & Güvenlik Durumu */}
         <div className="flex items-center gap-2 shrink-0">
-          {criminalClean && (
-            <span className="hidden sm:inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-[#E6F4EC] text-[#0F6E45] text-xs font-semibold">
+          {criminalUploaded ? (
+            <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-[#E6F4EC] text-[#0F6E45] text-xs font-semibold whitespace-nowrap">
               <ShieldCheck className="w-3.5 h-3.5" />
-              <span>Sicil Onaylı</span>
+              <span>Adli Sicil: Yüklendi</span>
             </span>
+          ) : (
+            <button
+              type="button"
+              onClick={() => onNavigate('sabika')}
+              className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-amber-50 border border-amber-200 text-amber-800 text-xs font-semibold whitespace-nowrap hover:bg-amber-100 transition-colors"
+            >
+              <FileWarning className="w-3.5 h-3.5" />
+              <span>Adli Sicil: Yüklenmedi</span>
+            </button>
           )}
-          <button
-            type="button"
-            onClick={() => onNavigate('anket')}
-            className="px-4 py-2 rounded-xl bg-[#0F6E45] hover:bg-[#0b5736] text-white text-xs font-semibold whitespace-nowrap transition-colors"
-          >
-            Sorulara Başla
-          </button>
+          <span className="hidden lg:inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-zinc-100 text-zinc-700 text-[11px] font-semibold whitespace-nowrap">
+            <Lock className="w-3 h-3 text-[#0F6E45]" />
+            <span>TR Sunucu</span>
+          </span>
         </div>
       </div>
 
