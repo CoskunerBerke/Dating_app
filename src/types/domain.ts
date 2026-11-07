@@ -103,6 +103,7 @@ export type CriminalRecordStatus =
 export interface CriminalRecordAnalysis {
   status: CriminalRecordStatus;
   fileName?: string;
+  fileSizeKB?: number;
   documentDate?: string;
   documentSayi?: string;
   maskedBarcode?: string;
