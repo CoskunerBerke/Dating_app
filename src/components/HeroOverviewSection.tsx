@@ -1,5 +1,5 @@
 import React from 'react';
-import { ArrowRight, ShieldCheck } from 'lucide-react';
+import { ArrowRight, ShieldCheck, CheckCircle2, SlidersHorizontal } from 'lucide-react';
 
 interface HeroOverviewSectionProps {
   onStartQuestionnaire: () => void;
@@ -14,175 +14,188 @@ export const HeroOverviewSection: React.FC<HeroOverviewSectionProps> = ({
   onOpenMatches,
 }) => {
   return (
-    <div className="animate-section-enter">
-      {/* Ana Giriş */}
-      <section className="border-b border-zinc-300 bg-[#FAF8F5]">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16 lg:py-24 grid grid-cols-1 lg:grid-cols-12 gap-12 items-center">
-          <div className="lg:col-span-7 space-y-6">
-            <div className="font-mono text-xs uppercase tracking-widest text-zinc-500">
-              GERÇEK KRİTERLER VE GÜVEN DOĞRULAMALI TANIŞMA UYGULAMASI
+    <div className="max-w-5xl mx-auto px-4 sm:px-6 py-8 sm:py-14 animate-section-enter">
+      {/* Ana Karşılama ve Örnek Eşleşme Kartı */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-center">
+        {/* Sol: Sade Başlık ve Aksiyonlar */}
+        <div className="lg:col-span-6 space-y-5">
+          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#E6F4EC] text-[#0F6E45] text-xs font-semibold">
+            <ShieldCheck className="w-3.5 h-3.5" />
+            <span>Kriter & Güven Doğrulamalı Tanışma</span>
+          </span>
+
+          <h1 className="font-serif text-3xl sm:text-5xl font-bold text-zinc-900 leading-tight">
+            Kafa dengi insanlarla yüzdelik uyum üzerinden tanış.
+          </h1>
+
+          <p className="text-sm sm:text-base text-zinc-600 leading-relaxed">
+            Kendi özelliklerini seç, kesinlikle istemediğin kriterleri kırmızı kutucuklarla ele ve sana gerçekten uyan adayları gör.
+          </p>
+
+          <div className="flex flex-wrap items-center gap-3 pt-1">
+            <button
+              type="button"
+              onClick={onStartQuestionnaire}
+              className="px-6 py-3.5 rounded-2xl bg-[#0F6E45] hover:bg-[#0b5736] text-white text-sm font-bold flex items-center gap-2 shadow-sm transition-all"
+            >
+              <span>Sorulara Başla</span>
+              <ArrowRight className="w-4 h-4" />
+            </button>
+
+            <button
+              type="button"
+              onClick={onOpenMatches}
+              className="px-5 py-3.5 rounded-2xl border border-zinc-300 bg-white hover:bg-zinc-50 text-zinc-800 text-sm font-semibold transition-colors"
+            >
+              Eşleşmeleri Gör
+            </button>
+
+            <button
+              type="button"
+              onClick={onOpenCriminalCheck}
+              className="px-4 py-3.5 rounded-2xl text-zinc-600 hover:text-zinc-900 text-xs font-semibold underline underline-offset-4"
+            >
+              e-Devlet Adli Sicil Doğrula
+            </button>
+          </div>
+        </div>
+
+        {/* Sağ: Sade Örnek Profil Kartı */}
+        <div className="lg:col-span-6">
+          <div className="bg-white rounded-[28px] border border-zinc-200/90 p-6 sm:p-7 shadow-sm">
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <h2 className="text-2xl font-bold text-zinc-900">Can</h2>
+                <p className="text-sm text-zinc-600 mt-0.5">
+                  24 yaş · 187 cm · Orta yapılı · İzmir · Özgür Yolcu
+                </p>
+              </div>
+              <div className="text-right shrink-0">
+                <span className="text-3xl font-bold text-[#0F6E45] block leading-none">
+                  %91
+                </span>
+                <span className="text-xs font-bold text-zinc-800 block mt-1">
+                  Çok yüksek uyum
+                </span>
+                <span className="text-[11px] text-zinc-500 block">
+                  adaylarınız arasında ilk %2
+                </span>
+              </div>
             </div>
 
-            <h1 className="font-serif text-4xl sm:text-5xl lg:text-6xl font-semibold text-zinc-900 leading-[1.12] tracking-tight">
-              Kimin ne olduğu baştan belli olsun; gerçekten sana uyan insanlarla tanış.
-            </h1>
+            <div className="flex flex-wrap gap-1.5 mt-4">
+              {[
+                'Dinde esnek',
+                'Bağımsız',
+                'Açık sözlü',
+                'Sabırlı',
+                'Titiz ve bakımlı',
+                'Düzenli',
+                'Sakin mizaçlı',
+                'Anlayışlı',
+              ].map((t) => (
+                <span
+                  key={t}
+                  className="px-3 py-1 rounded-full bg-zinc-100 text-zinc-700 text-xs font-medium"
+                >
+                  {t}
+                </span>
+              ))}
+            </div>
 
-            <p className="text-base sm:text-lg text-zinc-600 leading-relaxed max-w-2xl">
-              Aylarca konuşup karşı tarafın inancını, cemaat/mezhep bağlantısını, siyasi görüşünü, tuttuğu takımı veya alışkanlıklarını sonradan öğrenip hayal kırıklığı yaşama. Kendi özelliklerini seç, kesinlikle istemediklerini kırmızı kutucuklarla ele ve sana yüzde kaç uyduğunu gör.
+            <div className="mt-4">
+              <span className="text-xs font-bold text-zinc-800 block mb-1.5">
+                Ortak ilgi alanlarınız (4)
+              </span>
+              <div className="flex flex-wrap gap-1.5">
+                {['Film / dizi', 'Seyahat', 'Tarih / müze gezmek', 'Arkadaşlarla sohbet'].map(
+                  (i) => (
+                    <span
+                      key={i}
+                      className="px-3 py-1 rounded-full bg-[#E6F4EC] text-[#0F6E45] text-xs font-semibold"
+                    >
+                      {i}
+                    </span>
+                  )
+                )}
+              </div>
+            </div>
+
+            <p className="mt-4 text-xs leading-relaxed text-zinc-700">
+              <strong className="text-[#0F6E45]">Uyumlu olduğunuz konular: </strong>
+              Para yönetimi ★, Siyasi görüş ★, Düzen ve sorumluluk, Yaşam temposu ★, Dini çizgi ★, Mezhep ★, Sosyal hayat, Güven ve özel alan
             </p>
 
-            <div className="pt-2 flex flex-wrap items-center gap-4">
+            <p className="mt-2 text-xs leading-relaxed text-zinc-700">
+              <strong className="text-[#9A5B13]">Farklı olduğunuz konular: </strong>
+              İletişim tarzı ★, Öfke anı
+            </p>
+
+            <div className="mt-5 grid grid-cols-12 gap-2">
               <button
                 type="button"
                 onClick={onStartQuestionnaire}
-                className="px-7 py-4 rounded-xl bg-zinc-900 hover:bg-zinc-800 text-white text-xs font-semibold uppercase tracking-wider flex items-center gap-3 transition-all hover:-translate-y-0.5 shadow-sm"
+                className="col-span-6 py-2.5 px-4 rounded-xl bg-[#0F6E45] text-white text-xs sm:text-sm font-bold"
               >
-                <span>Soruları Cevapla & Kendini Tanıt</span>
-                <ArrowRight className="w-4 h-4" />
+                İlgileniyorum
               </button>
-
               <button
                 type="button"
                 onClick={onOpenMatches}
-                className="px-6 py-4 rounded-xl border border-zinc-900 bg-white hover:bg-zinc-100 text-zinc-900 text-xs font-semibold uppercase tracking-wider transition-all hover:-translate-y-0.5"
+                className="col-span-3 py-2.5 px-3 rounded-xl border border-zinc-300 text-zinc-700 text-xs sm:text-sm font-semibold"
               >
-                Eşleşme Oranlarını Gör
+                Geç
               </button>
-
               <button
                 type="button"
-                onClick={onOpenCriminalCheck}
-                className="px-6 py-4 rounded-xl border border-zinc-300 bg-transparent hover:border-zinc-900 text-zinc-800 text-xs font-semibold uppercase tracking-wider transition-colors"
+                onClick={onOpenMatches}
+                className="col-span-3 py-2.5 px-3 rounded-xl border border-zinc-300 text-zinc-700 text-xs sm:text-sm font-semibold"
               >
-                e-Devlet Sabıka Kaydı Sorgula
+                Engelle
               </button>
             </div>
           </div>
-
-          {/* Sağ: Örnek Uyum Oranları */}
-          <div className="lg:col-span-5">
-            <div className="bg-white rounded-3xl border border-zinc-300 p-6 sm:p-8 space-y-6 shadow-sm">
-              <div className="flex items-center justify-between border-b border-zinc-200 pb-4">
-                <span className="text-xs uppercase tracking-wider text-zinc-900 font-bold">
-                  UYUM YÜZDESİ VE ÖNERİ SİSTEMİ
-                </span>
-                <span className="font-mono text-[11px] text-zinc-500">CANLI EŞLEŞME</span>
-              </div>
-
-              <div className="space-y-4">
-                <div className="p-4 rounded-2xl border border-zinc-900 bg-zinc-900 text-white">
-                  <div className="flex items-center justify-between font-mono text-xs mb-1">
-                    <span className="text-emerald-300 font-semibold">%90 VE ÜZERİ UYUM</span>
-                    <span>TAM KAFA DENGİ</span>
-                  </div>
-                  <p className="text-xs text-zinc-200 leading-relaxed">
-                    “Yüzde 90+ uyumlu: Bence hiç vakit kaybetmeyin, direkt sevgili olabilirsiniz!”
-                  </p>
-                </div>
-
-                <div className="p-4 rounded-2xl border border-zinc-300 bg-[#FAF8F5]">
-                  <div className="flex items-center justify-between font-mono text-xs text-zinc-900 font-semibold mb-1">
-                    <span>%80 – %89 UYUM</span>
-                    <span>CİDDİ İLİŞKİ ADAYI</span>
-                  </div>
-                  <p className="text-xs text-zinc-600 leading-relaxed">
-                    “Yüzde 80+ uyumlu: Bence çok sağlam bir ilişki çıkar, çok iyi anlaşırsınız.”
-                  </p>
-                </div>
-
-                <div className="p-4 rounded-2xl border border-zinc-300 bg-[#FAF8F5]">
-                  <div className="flex items-center justify-between font-mono text-xs text-zinc-900 font-semibold mb-1">
-                    <span>%60 – %79 UYUM</span>
-                    <span>ŞANS DENENEBİLİR</span>
-                  </div>
-                  <p className="text-xs text-zinc-600 leading-relaxed">
-                    “Yüzde 60+ uyumlu: Bence bir kahve içip şansınızı kesinlikle deneyebilirsiniz.”
-                  </p>
-                </div>
-              </div>
-
-              <div className="pt-4 border-t border-zinc-200 flex items-center justify-between text-xs font-mono text-zinc-600">
-                <span>Kişisel Bilgiler: GİZLİ</span>
-                <span>Sunucu: TÜRKİYE (KVKK Uyumlu)</span>
-              </div>
-            </div>
-          </div>
         </div>
-      </section>
+      </div>
 
-      {/* 6 Sütunlu Net Çalışma Mantığı */}
-      <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
-        <div className="mb-10">
-          <span className="font-mono text-xs uppercase tracking-widest text-zinc-500 block mb-2">
-            SİSTEM NASIL ÇALIŞIYOR?
-          </span>
-          <h2 className="font-serif text-3xl font-semibold text-zinc-900">
-            İnsanları Yormadan Gerçekten Tanıyan Sistem
-          </h2>
+      {/* 3 Sade Adım Özeti */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mt-10">
+        <div className="bg-white rounded-2xl border border-zinc-200/80 p-5">
+          <div className="w-8 h-8 rounded-lg bg-zinc-100 text-zinc-900 flex items-center justify-center mb-3">
+            <SlidersHorizontal className="w-4 h-4" />
+          </div>
+          <h3 className="font-bold text-sm text-zinc-900 mb-1">
+            1. Kişisel Bilgilerini & Kriterlerini Seç
+          </h3>
+          <p className="text-xs text-zinc-600 leading-relaxed">
+            Boy, yaş, mizaç özelliklerin ile inanç, siyasi görüş ve yaşam tarzı sorularını hızlıca işaretle.
+          </p>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 border-t border-l border-zinc-300 bg-white">
-          <div className="p-8 border-r border-b border-zinc-300">
-            <span className="font-mono text-xs text-zinc-400 block mb-4">01 / HER DALDA NET SORULAR</span>
-            <h3 className="font-serif text-xl font-semibold text-zinc-900 mb-3">
-              Din, Mezhep, Cemaat, Siyaset, Takım ve Meslek
-            </h3>
-            <p className="text-xs sm:text-sm text-zinc-600 leading-relaxed">
-              En popüler seçenekler hazır kutucuklar halinde gelir. Listede yoksa “Diğer” diyerek kendin yazabilir veya “Bahsetmek İstemiyorum” diyerek geçebilirsin.
-            </p>
+        <div className="bg-white rounded-2xl border border-zinc-200/80 p-5">
+          <div className="w-8 h-8 rounded-lg bg-red-50 text-[#B90E0A] flex items-center justify-center mb-3">
+            <CheckCircle2 className="w-4 h-4" />
           </div>
-
-          <div className="p-8 border-r border-b border-zinc-300">
-            <span className="font-mono text-xs text-zinc-400 block mb-4">02 / KIRMIZI KUTUCUK FİLTRESİ</span>
-            <h3 className="font-serif text-xl font-semibold text-zinc-900 mb-3">
-              Kesinlikle İstemiyorum Dediğin Grupları Ele
-            </h3>
-            <p className="text-xs sm:text-sm text-zinc-600 leading-relaxed">
-              Belirli bir siyasi görüşten, cemaatten, mezhepten veya alışkanlıktan biriyle asla yapamam diyorsan kırmızı kutucukla işaretle; sistem o kişileri sana hiç göstermesin.
-            </p>
-          </div>
-
-          <div className="p-8 border-r border-b border-zinc-300">
-            <span className="font-mono text-xs text-zinc-400 block mb-4">03 / CEVABA GÖRE AÇILAN SORULAR</span>
-            <h3 className="font-serif text-xl font-semibold text-zinc-900 mb-3">
-              Kişiye Göre Şekillenen Akıllı Sorular
-            </h3>
-            <p className="text-xs sm:text-sm text-zinc-600 leading-relaxed">
-              Verdiğin cevaba göre sana uygun alt sorular açılır. Örneğin İslam seçersen mezhep/cemaat sorulur; takım seçersen ne kadar fanatik olduğun sorulur.
-            </p>
-          </div>
-
-          <div className="p-8 border-r border-b border-zinc-300">
-            <span className="font-mono text-xs text-zinc-400 block mb-4">04 / E-DEVLET SABIKA KAYDI</span>
-            <h3 className="font-serif text-xl font-semibold text-zinc-900 mb-3">
-              Barkodlu Adli Sicil PDF Doğrulaması
-            </h3>
-            <p className="text-xs sm:text-sm text-zinc-600 leading-relaxed">
-              Kullanıcılar e-Devlet’ten aldıkları sabıka kaydı PDF’ini yükler. Sistem “Adli Sicil Kaydı Yoktur” satırını ve doğum yılını kontrol eder, ardından dosyayı siler.
-            </p>
-          </div>
-
-          <div className="p-8 border-r border-b border-zinc-300">
-            <span className="font-mono text-xs text-zinc-400 block mb-4">05 / YÜZDE KAÇ UYUMLU?</span>
-            <h3 className="font-serif text-xl font-semibold text-zinc-900 mb-3">
-              Net Uyum Oranı ve İletişim Seçeneği
-            </h3>
-            <p className="text-xs sm:text-sm text-zinc-600 leading-relaxed">
-              Adayların sana yüzde kaç uyduğunu (%90, %80, %60) ve hangi başlıklarda anlaştığınızı görürsün. Beğendiğin kişiye “İletişim Kurmak İster misin?” isteği gönderirsin.
-            </p>
-          </div>
-
-          <div className="p-8 border-r border-b border-zinc-300">
-            <span className="font-mono text-xs text-zinc-400 block mb-4">06 / KVKK SÖZLEŞMESİ & TÜRKİYE SUNUCUSU</span>
-            <h3 className="font-serif text-xl font-semibold text-zinc-900 mb-3">
-              Tam Yasal Güvence ve Gizlilik
-            </h3>
-            <p className="text-xs sm:text-sm text-zinc-600 leading-relaxed">
-              Veriler açık rıza sözleşmesiyle alınır, Türkiye’deki sunucularda anonim kodla tutulur ve iletişim bilgileri sadece karşılıklı onayda açılır.
-            </p>
-          </div>
+          <h3 className="font-bold text-sm text-zinc-900 mb-1">
+            2. Kırmızı Kutucuklarla Eleme Yap
+          </h3>
+          <p className="text-xs text-zinc-600 leading-relaxed">
+            Kesinlikle birlikte olamayacağın grupları kırmızı kutucuklarla seç; o kişiler sana hiç gösterilmesin.
+          </p>
         </div>
-      </section>
+
+        <div className="bg-white rounded-2xl border border-zinc-200/80 p-5">
+          <div className="w-8 h-8 rounded-lg bg-[#E6F4EC] text-[#0F6E45] flex items-center justify-center mb-3">
+            <ShieldCheck className="w-4 h-4" />
+          </div>
+          <h3 className="font-bold text-sm text-zinc-900 mb-1">
+            3. e-Devlet Güveniyle İletişime Geç
+          </h3>
+          <p className="text-xs text-zinc-600 leading-relaxed">
+            Karşılıklı onay verildiğinde seçtiğin WhatsApp veya Instagram üzerinden güvenle tanış.
+          </p>
+        </div>
+      </div>
     </div>
   );
 };
