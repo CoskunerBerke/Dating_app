@@ -20,7 +20,8 @@ export interface QuestionOption {
     | 'sol_sosyal'
     | 'liberal'
     | 'apolitik'
-    | 'dengeli';
+    | 'dengeli'
+    | 'diger';
 }
 
 export interface FollowUpOption {
@@ -32,7 +33,7 @@ export interface FollowUpBlock {
   triggerOptionIds: string[];
   id: string;
   title: string;
-  subtitle: string;
+  subtitle?: string;
   mode: 'single_select' | 'red_exclusion_multi';
   options: FollowUpOption[];
   allowCustomOther?: boolean;
@@ -101,6 +102,16 @@ export type CriminalRecordStatus =
 
 export interface CriminalRecordAnalysis {
   status: CriminalRecordStatus;
+  fileName?: string;
+  documentDate?: string;
+  documentSayi?: string;
+  maskedBarcode?: string;
+  sorguTuru?: string;
+  kullanimAmaci?: string;
+  kimlikTuru?: string;
+  maskedTcNo?: string;
+  birthPlaceAndYear?: string;
+  verificationHash?: string;
   verificationTimestamp?: string;
   documentHash?: string;
   barcodeNumber?: string;
