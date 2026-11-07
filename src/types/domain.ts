@@ -111,7 +111,12 @@ export interface CriminalRecordAnalysis {
   kullanimAmaci?: string;
   kimlikTuru?: string;
   maskedTcNo?: string;
+  tcChecksumValid?: boolean;
+  maskedName?: string;
   birthPlaceAndYear?: string;
+  institution?: string;
+  liveEdevletStatus?: string;
+  verifiedAt?: string;
   verificationHash?: string;
   verificationTimestamp?: string;
   documentHash?: string;
