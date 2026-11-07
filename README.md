@@ -1,25 +1,23 @@
-# Mizan - Frekans, Karakter ve Guven Odakli Tanisma Platformu
+# Mizan - Kriter ve Guven Dogrulamali Tanisma Uygulamasi
 
-Yuzeysel kaydirma tabanli uygulamalarin aksine; psikometrik deger uyumu, yasam ritmi, dunya gorusu, iletisim sinirlari ve e-Devlet adli sicil dogrulamasi uzerinden calisan yeni nesil tanisma uygulamasi.
+Kullanicilarin inanc, mezhep, cemaat/topluluk, siyasi gorus, tuttugu takim, yaptigi spor, meslek ve iliski sinirlarini acikca secerek kendilerine en uygun kisilerle yuzdelik uyum uzerinden eslestigi tanisma platformu.
 
 ## Temel Ozellikler
 
-- **Psikometrik Kesif ve Dinamik Soru Formatlari:** Schwartz Deger Kurami, Big Five, Baglanma Kurami ve Gottman Iletisim Modellerini temel alan 12 adimli interaktif kesif akisi (`2x2 Bento Matrisi`, `Yatay Frekans Spektrumu`, `Karsilastirmali Kartlar` ve `Senaryo Tepki Olcegi`).
-- **Canli Karakter Arketipi Analizi:** Kullanici sorulari yanitladikca gercek zamanli olarak 4 eksenli karakter profilini ve iliski dinamigini cozumler.
-- **Kirmizi Cizgi ve Frekans Algoritmasi:** Agirlikli vektor uzakligi ve kirmizi cizgi (dealbreaker) kurallarina gore adaylari `%90+ (Yuksek Kimya)`, `%80-89 (Uzun Vadeli Potansiyel)` ve `%60-79 (Sans Denenebilir)` esiklerinde eslestirir; ortak noktalara gore otomatik ilk mesaj (icebreaker) uretir.
-- **e-Devlet Barkodlu Adli Sicil PDF Analizi:** Kullanicinin yukledigi e-Devlet Adli Sicil PDF belgesini istemci belleginde (RAM) okuyarak `ADB` barkodunu, `MERNIS` kimlik kontrolunu, dogum yili/yas dogrulamasini ve `"YUKARIDA KIMLIK BILGILERI BULUNAN KISININ ADLI SICIL KAYDI YOKTUR."` sonuc blogunu dogrular.
-- **6698 Sayili KVKK Madde 6 Uyumu:** Ozel nitelikli veriler genel aydinlatma metninden ayri acik riza beyaniyla islenir. Yuklenen PDF dosyalari diske kaydedilmez; dogrulama sonrasi bellekten silinerek yalnizca SHA-256 dogrulama ozeti tutulur.
+- **Kapsamli Secenek Havuzu ve Kisiye Gore Acilan Alt Sorular:** Din, mezhep, dini cemaatler, siyasi gorusler, futbol takimlari, spor dallari, meslekler ve sosyal aliskanliklar icin en yaygin secenekler hazir kutucuklar halinde sunulur. Her soruda listede olmayanlar icin `Diger (Kendim Yazacagim)` ve paylasmak istemeyenler icin `Bahsetmek Istemiyorum` secenegi yer alir.
+- **Kirmizi Kutucuk (Kesinlikle Birlikte Olmam) Filtresi:** Kullanicilar karsi tarafta kesinlikle istemedikleri siyasi gorusleri, cemaatleri, mezhepleri veya aliskanliklari kirmizi kutucuklarla isaretleyerek o gruptaki adaylari tamamen eleyebilir.
+- **Zorunlu Adim Adim Tanitma Akisi:** Sorular atlanamaz; kullanicinin diger soruya gecebilmesi ve eslesme havuzunu gorebilmesi icin sorulari yanitlamasi zorunludur.
+- **e-Devlet Barkodlu Sabika Kaydi PDF Analizi:** Yuklenen e-Devlet Adli Sicil PDF belgesinde `ADB` barkodu, `MERNIS` kimlik dogrulamasi, dogum yili/yas kontrolu ve `"YUKARIDA KIMLIK BILGILERI BULUNAN KISININ ADLI SICIL KAYDI YOKTUR."` ibaresi kontrol edilir.
+- **KVKK Sozlesmesi ve Turkiye Sunucu Yapisi:** Ozel nitelikli veriler acik riza sozlesmesiyle islenir, PDF belgeleri sunucuda saklanmaz ve iletisim bilgileri yalnizca karsilikli onayda acilir.
 
-## Gelistirme Ortami
-
-Bagimliliklari yuklemek ve yerel sunucuyu baslatmak icin:
+## Kurulum
 
 ```bash
 npm install
 npm run dev
 ```
 
-Production derlemesi:
+Derleme:
 
 ```bash
 npm run build

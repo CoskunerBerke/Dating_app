@@ -15,69 +15,6 @@ import { QUESTIONS } from './data/questionsData';
 import { CANDIDATE_POOL } from './data/candidatesPool';
 import { analyzeCompatibility } from './services/matchingEngine';
 
-const INITIAL_ANSWERS_MUHAFAZAKAR: Record<string, UserAnswer> = {
-  q_inanc_tanim: {
-    questionId: 'q_inanc_tanim',
-    selectedOptionId: 'inanc_muhafazakar_pratik',
-    isDealbreaker: true,
-  },
-  q_dunya_gorusu: {
-    questionId: 'q_dunya_gorusu',
-    selectedOptionId: 'gorus_muhafazakar_islami',
-    isDealbreaker: false,
-  },
-  q_ibadet_pratik: {
-    questionId: 'q_ibadet_pratik',
-    selectedOptionId: 'ibadet_bes_vakit_ortak',
-    isDealbreaker: true,
-  },
-  q_sosyal_alkol: {
-    questionId: 'q_sosyal_alkol',
-    selectedOptionId: 'alkol_kesin_ret',
-    isDealbreaker: true,
-  },
-  q_giyim_temsil: {
-    questionId: 'q_giyim_temsil',
-    selectedOptionId: 'giyim_tesettur_hassas',
-    isDealbreaker: true,
-  },
-  q_karsi_cins_sosyal_medya: {
-    questionId: 'q_karsi_cins_sosyal_medya',
-    selectedOptionId: 'sinir_net_mahrem',
-    isDealbreaker: false,
-  },
-  q_ekonomi_calisma: {
-    questionId: 'q_ekonomi_calisma',
-    selectedOptionId: 'ekonomi_geleneksel_guvence',
-    isDealbreaker: false,
-  },
-  q_kok_aile_sinirlar: {
-    questionId: 'q_kok_aile_sinirlar',
-    selectedOptionId: 'aile_saygili_cekirdek',
-    isDealbreaker: true,
-  },
-  q_ev_ici_roller: {
-    questionId: 'q_ev_ici_roller',
-    selectedOptionId: 'rol_esnek_destek',
-    isDealbreaker: false,
-  },
-  q_dugun_baslangic: {
-    questionId: 'q_dugun_baslangic',
-    selectedOptionId: 'dugun_sade_gelecek',
-    isDealbreaker: false,
-  },
-  q_kriz_tartisma: {
-    questionId: 'q_kriz_tartisma',
-    selectedOptionId: 'kriz_sakinlesip_konusma',
-    isDealbreaker: false,
-  },
-  q_cocuk_gelecek: {
-    questionId: 'q_cocuk_gelecek',
-    selectedOptionId: 'cocuk_erken_manevi',
-    isDealbreaker: false,
-  },
-};
-
 export function App() {
   const [activeSection, setActiveSection] = useState<
     'hero' | 'anket' | 'sabika' | 'eslesmeler' | 'kvkk'
@@ -87,18 +24,16 @@ export function App() {
     aliasCode: 'ADAY #TR-8941',
     gender: 'erkek',
     lookingFor: 'kadin',
-    age: 26,
+    age: 25,
     city: 'İstanbul',
-    profession: 'Yazılım & Teknoloji Girişimcisi',
-    education: 'Lisans',
+    profession: 'Yazılım & Teknoloji',
     relationshipDynamic: 'Uzun Vadeli & Ciddi İlişki',
-    bio: 'Net değerleri olan, derin sohbeti ve samimiyeti önemseyen, aynı frekansta buluşabileceği kafa dengi birini arayan biriyim.',
+    bio: 'Net kriterleri olan, samimi ve kafa dengi biriyle tanışmak isteyen biriyim.',
     contactChannel: '+90 (532) 890 ** **',
   });
 
-  const [answers, setAnswers] = useState<Record<string, UserAnswer>>(
-    INITIAL_ANSWERS_MUHAFAZAKAR
-  );
+  // Kullanıcı soruları tek tek cevaplamak zorunda olsun diye başlangıçta boş başlıyor
+  const [answers, setAnswers] = useState<Record<string, UserAnswer>>({});
 
   const [kvkkConsent, setKvkkConsent] = useState<KvkkConsentRecord>({
     generalIlluminationAccepted: true,
@@ -120,18 +55,10 @@ export function App() {
     detectedClauses: [],
   });
 
-  const handleSelectAnswer = (
-    questionId: string,
-    optionId: string,
-    isDealbreaker: boolean
-  ) => {
+  const handleUpdateAnswer = (questionId: string, updated: UserAnswer) => {
     setAnswers((prev) => ({
       ...prev,
-      [questionId]: {
-        questionId,
-        selectedOptionId: optionId,
-        isDealbreaker,
-      },
+      [questionId]: updated,
     }));
   };
 
@@ -139,71 +66,158 @@ export function App() {
     persona: 'muhafazakar' | 'sentez' | 'ataturkcu_sekuler'
   ) => {
     if (persona === 'muhafazakar') {
-      setAnswers(INITIAL_ANSWERS_MUHAFAZAKAR);
+      setAnswers({
+        q_inanc: {
+          questionId: 'q_inanc',
+          selectedOptionId: 'inanc_islam_pratik',
+          followUpSingleAnswers: {
+            f_mezhep_secimi: 'mezhep_hanefi',
+            f_kendi_cemaati: 'cem_bagimsiz',
+          },
+          followUpCustomTexts: {},
+          excludedRedIds: [],
+        },
+        q_cemaat_mezhep_ret: {
+          questionId: 'q_cemaat_mezhep_ret',
+          selectedOptionId: 'cemaat_bireysel_saygi',
+          followUpSingleAnswers: {},
+          followUpCustomTexts: {},
+          excludedRedIds: ['cem_furkan', 'inanc_ateist'],
+        },
+        q_siyasi_gorus: {
+          questionId: 'q_siyasi_gorus',
+          selectedOptionId: 'siy_muhafazakar',
+          followUpSingleAnswers: {},
+          followUpCustomTexts: {},
+          excludedRedIds: ['siy_sosyalist', 'siy_kurt_hareketi'],
+        },
+        q_meslek: {
+          questionId: 'q_meslek',
+          selectedOptionId: 'mes_ticaret',
+          followUpSingleAnswers: { f_maddi_yaklasim: 'mad_centilmen' },
+          followUpCustomTexts: {},
+          excludedRedIds: [],
+        },
+        q_takim: {
+          questionId: 'q_takim',
+          selectedOptionId: 'tak_fb',
+          followUpSingleAnswers: { f_fanatiklik: 'fan_derbi' },
+          followUpCustomTexts: {},
+          excludedRedIds: [],
+        },
+        q_spor: {
+          questionId: 'q_spor',
+          selectedOptionId: 'sp_fitness',
+          followUpSingleAnswers: { f_haftasonu: 'hs_sakin' },
+          followUpCustomTexts: {},
+          excludedRedIds: [],
+        },
+        q_alkol_sosyal: {
+          questionId: 'q_alkol_sosyal',
+          selectedOptionId: 'alk_kesin_yok',
+          followUpSingleAnswers: {},
+          followUpCustomTexts: {},
+          excludedRedIds: ['alk_sosyal', 'alk_gece_hayati'],
+        },
+        q_giyim: {
+          questionId: 'q_giyim',
+          selectedOptionId: 'giy_tesettur',
+          followUpSingleAnswers: { f_karsi_giyim_beklentisi: 'kb_tesettur_sart' },
+          followUpCustomTexts: {},
+          excludedRedIds: [],
+        },
+        q_muzik_kultur: {
+          questionId: 'q_muzik_kultur',
+          selectedOptionId: 'muz_turku',
+          followUpSingleAnswers: { f_sohbet_konusu: 'soh_psikoloji' },
+          followUpCustomTexts: {},
+          excludedRedIds: [],
+        },
+        q_kiskanclik_sinirlar: {
+          questionId: 'q_kiskanclik_sinirlar',
+          selectedOptionId: 'sin_kati',
+          followUpSingleAnswers: {},
+          followUpCustomTexts: {},
+          excludedRedIds: ['dav_eski_sevgili', 'dav_karsi_cins_kanka'],
+        },
+      });
       return;
     }
 
     if (persona === 'sentez') {
       setAnswers({
-        q_inanc_tanim: {
-          questionId: 'q_inanc_tanim',
-          selectedOptionId: 'inanc_geleneksel_kulturel',
-          isDealbreaker: false,
+        q_inanc: {
+          questionId: 'q_inanc',
+          selectedOptionId: 'inanc_islam_geleneksel',
+          followUpSingleAnswers: {
+            f_mezhep_secimi: 'mezhep_hanefi',
+            f_kendi_cemaati: 'cem_bagimsiz',
+          },
+          followUpCustomTexts: {},
+          excludedRedIds: [],
         },
-        q_dunya_gorusu: {
-          questionId: 'q_dunya_gorusu',
-          selectedOptionId: 'gorus_anadolu_sentez',
-          isDealbreaker: true,
+        q_cemaat_mezhep_ret: {
+          questionId: 'q_cemaat_mezhep_ret',
+          selectedOptionId: 'cemaat_tamamen_karsi',
+          followUpSingleAnswers: {},
+          followUpCustomTexts: {},
+          excludedRedIds: ['cem_ismailaga', 'cem_menzil', 'cem_suleymancilar', 'cem_hepsi'],
         },
-        q_ibadet_pratik: {
-          questionId: 'q_ibadet_pratik',
-          selectedOptionId: 'ibadet_ramazan_cuma',
-          isDealbreaker: false,
+        q_siyasi_gorus: {
+          questionId: 'q_siyasi_gorus',
+          selectedOptionId: 'siy_ataturkcu',
+          followUpSingleAnswers: {},
+          followUpCustomTexts: {},
+          excludedRedIds: ['siy_islamci', 'siy_kurt_hareketi'],
         },
-        q_sosyal_alkol: {
-          questionId: 'q_sosyal_alkol',
-          selectedOptionId: 'alkol_kullanmam_esnek',
-          isDealbreaker: false,
+        q_meslek: {
+          questionId: 'q_meslek',
+          selectedOptionId: 'mes_yazilim',
+          followUpSingleAnswers: { f_maddi_yaklasim: 'mad_ortak' },
+          followUpCustomTexts: {},
+          excludedRedIds: [],
         },
-        q_giyim_temsil: {
-          questionId: 'q_giyim_temsil',
-          selectedOptionId: 'giyim_olculu_sade',
-          isDealbreaker: false,
+        q_takim: {
+          questionId: 'q_takim',
+          selectedOptionId: 'tak_gs',
+          followUpSingleAnswers: { f_fanatiklik: 'fan_derbi' },
+          followUpCustomTexts: {},
+          excludedRedIds: [],
         },
-        q_karsi_cins_sosyal_medya: {
-          questionId: 'q_karsi_cins_sosyal_medya',
-          selectedOptionId: 'sinir_ailece_dengeli',
-          isDealbreaker: false,
+        q_spor: {
+          questionId: 'q_spor',
+          selectedOptionId: 'sp_fitness',
+          followUpSingleAnswers: { f_haftasonu: 'hs_kafe' },
+          followUpCustomTexts: {},
+          excludedRedIds: [],
         },
-        q_ekonomi_calisma: {
-          questionId: 'q_ekonomi_calisma',
-          selectedOptionId: 'ekonomi_ortak_havuz',
-          isDealbreaker: false,
+        q_alkol_sosyal: {
+          questionId: 'q_alkol_sosyal',
+          selectedOptionId: 'alk_icmem_esnek',
+          followUpSingleAnswers: {},
+          followUpCustomTexts: {},
+          excludedRedIds: ['alk_gece_hayati'],
         },
-        q_kok_aile_sinirlar: {
-          questionId: 'q_kok_aile_sinirlar',
-          selectedOptionId: 'aile_saygili_cekirdek',
-          isDealbreaker: true,
+        q_giyim: {
+          questionId: 'q_giyim',
+          selectedOptionId: 'giy_klasik_sik',
+          followUpSingleAnswers: { f_karsi_giyim_beklentisi: 'kb_olculu_olmali' },
+          followUpCustomTexts: {},
+          excludedRedIds: [],
         },
-        q_ev_ici_roller: {
-          questionId: 'q_ev_ici_roller',
-          selectedOptionId: 'rol_esnek_destek',
-          isDealbreaker: false,
+        q_muzik_kultur: {
+          questionId: 'q_muzik_kultur',
+          selectedOptionId: 'muz_rock',
+          followUpSingleAnswers: { f_sohbet_konusu: 'soh_is_yatirim' },
+          followUpCustomTexts: {},
+          excludedRedIds: [],
         },
-        q_dugun_baslangic: {
-          questionId: 'q_dugun_baslangic',
-          selectedOptionId: 'dugun_sade_gelecek',
-          isDealbreaker: false,
-        },
-        q_kriz_tartisma: {
-          questionId: 'q_kriz_tartisma',
-          selectedOptionId: 'kriz_aninda_cozum',
-          isDealbreaker: false,
-        },
-        q_cocuk_gelecek: {
-          questionId: 'q_cocuk_gelecek',
-          selectedOptionId: 'cocuk_planli_dengeli',
-          isDealbreaker: false,
+        q_kiskanclik_sinirlar: {
+          questionId: 'q_kiskanclik_sinirlar',
+          selectedOptionId: 'sin_dengeli',
+          followUpSingleAnswers: {},
+          followUpCustomTexts: {},
+          excludedRedIds: ['dav_eski_sevgili'],
         },
       });
       return;
@@ -211,65 +225,75 @@ export function App() {
 
     if (persona === 'ataturkcu_sekuler') {
       setAnswers({
-        q_inanc_tanim: {
-          questionId: 'q_inanc_tanim',
-          selectedOptionId: 'inanc_bireysel_manevi',
-          isDealbreaker: false,
+        q_inanc: {
+          questionId: 'q_inanc',
+          selectedOptionId: 'inanc_deist',
+          followUpSingleAnswers: { f_sekuler_beklenti: 'sek_muhafazakar_olmasin' },
+          followUpCustomTexts: {},
+          excludedRedIds: [],
         },
-        q_dunya_gorusu: {
-          questionId: 'q_dunya_gorusu',
-          selectedOptionId: 'gorus_ataturkcu_sekuler',
-          isDealbreaker: true,
+        q_cemaat_mezhep_ret: {
+          questionId: 'q_cemaat_mezhep_ret',
+          selectedOptionId: 'cemaat_tamamen_karsi',
+          followUpSingleAnswers: {},
+          followUpCustomTexts: {},
+          excludedRedIds: ['cem_hepsi'],
         },
-        q_ibadet_pratik: {
-          questionId: 'q_ibadet_pratik',
-          selectedOptionId: 'ibadet_serbest_saygi',
-          isDealbreaker: false,
+        q_siyasi_gorus: {
+          questionId: 'q_siyasi_gorus',
+          selectedOptionId: 'siy_ataturkcu',
+          followUpSingleAnswers: {},
+          followUpCustomTexts: {},
+          excludedRedIds: ['siy_muhafazakar', 'siy_islamci'],
         },
-        q_sosyal_alkol: {
-          questionId: 'q_sosyal_alkol',
-          selectedOptionId: 'alkol_sosyal_olculu',
-          isDealbreaker: false,
+        q_meslek: {
+          questionId: 'q_meslek',
+          selectedOptionId: 'mes_muhendis',
+          followUpSingleAnswers: { f_maddi_yaklasim: 'mad_ortak' },
+          followUpCustomTexts: {},
+          excludedRedIds: [],
         },
-        q_giyim_temsil: {
-          questionId: 'q_giyim_temsil',
-          selectedOptionId: 'giyim_bireysel_ozgur',
-          isDealbreaker: true,
+        q_takim: {
+          questionId: 'q_takim',
+          selectedOptionId: 'tak_bjk',
+          followUpSingleAnswers: { f_fanatiklik: 'fan_koyu' },
+          followUpCustomTexts: {},
+          excludedRedIds: [],
         },
-        q_karsi_cins_sosyal_medya: {
-          questionId: 'q_karsi_cins_sosyal_medya',
-          selectedOptionId: 'sinir_tam_ozgur',
-          isDealbreaker: false,
+        q_spor: {
+          questionId: 'q_spor',
+          selectedOptionId: 'sp_tenis',
+          followUpSingleAnswers: { f_haftasonu: 'hs_etkinlik' },
+          followUpCustomTexts: {},
+          excludedRedIds: [],
         },
-        q_ekonomi_calisma: {
-          questionId: 'q_ekonomi_calisma',
-          selectedOptionId: 'ekonomi_ortak_havuz',
-          isDealbreaker: false,
+        q_alkol_sosyal: {
+          questionId: 'q_alkol_sosyal',
+          selectedOptionId: 'alk_sosyal',
+          followUpSingleAnswers: {},
+          followUpCustomTexts: {},
+          excludedRedIds: ['alk_kesin_yok'],
         },
-        q_kok_aile_sinirlar: {
-          questionId: 'q_kok_aile_sinirlar',
-          selectedOptionId: 'aile_bagimsiz_mesafeli',
-          isDealbreaker: true,
+        q_giyim: {
+          questionId: 'q_giyim',
+          selectedOptionId: 'giy_modern_ozgur',
+          followUpSingleAnswers: { f_karsi_giyim_beklentisi: 'kb_karismam' },
+          followUpCustomTexts: {},
+          excludedRedIds: [],
         },
-        q_ev_ici_roller: {
-          questionId: 'q_ev_ici_roller',
-          selectedOptionId: 'rol_tam_esitlikci',
-          isDealbreaker: true,
+        q_muzik_kultur: {
+          questionId: 'q_muzik_kultur',
+          selectedOptionId: 'muz_yabanci',
+          followUpSingleAnswers: { f_sohbet_konusu: 'soh_film_kitap' },
+          followUpCustomTexts: {},
+          excludedRedIds: [],
         },
-        q_dugun_baslangic: {
-          questionId: 'q_dugun_baslangic',
-          selectedOptionId: 'dugun_butik_modern',
-          isDealbreaker: false,
-        },
-        q_kriz_tartisma: {
-          questionId: 'q_kriz_tartisma',
-          selectedOptionId: 'kriz_aninda_cozum',
-          isDealbreaker: false,
-        },
-        q_cocuk_gelecek: {
-          questionId: 'q_cocuk_gelecek',
-          selectedOptionId: 'cocuk_planli_dengeli',
-          isDealbreaker: false,
+        q_kiskanclik_sinirlar: {
+          questionId: 'q_kiskanclik_sinirlar',
+          selectedOptionId: 'sin_ozgur',
+          followUpSingleAnswers: {},
+          followUpCustomTexts: {},
+          excludedRedIds: ['dav_asiri_kiskanc'],
         },
       });
     }
@@ -294,7 +318,9 @@ export function App() {
         }}
         kvkkApproved={kvkkConsent.specialCategoryExplicitConsent}
         criminalClean={criminalAnalysis.status === 'clean'}
-        completedQuestionsCount={Object.keys(answers).length}
+        completedQuestionsCount={
+          QUESTIONS.filter((q) => Boolean(answers[q.id]?.selectedOptionId)).length
+        }
         totalQuestionsCount={QUESTIONS.length}
       />
 
@@ -313,7 +339,7 @@ export function App() {
             profile={profile}
             onUpdateProfile={setProfile}
             answers={answers}
-            onSelectAnswer={handleSelectAnswer}
+            onUpdateAnswer={handleUpdateAnswer}
             onApplyPresetPersona={handleApplyPresetPersona}
             kvkkApproved={kvkkConsent.specialCategoryExplicitConsent}
             onRequestKvkkModal={() => setActiveSection('kvkk')}
@@ -354,11 +380,11 @@ export function App() {
           <div>
             <span className="font-serif font-bold text-zinc-900 mr-2">MİZAN</span>
             <span>
-              Psikometrik Uyum, Frekans ve Güven Doğrulamalı Tanışma Platformu • KVKK Madde 6 Uyumlu Mimari
+              Kriter, Uyum ve Güven Doğrulamalı Tanışma Platformu • 6698 Sayılı KVKK Uyumlu
             </span>
           </div>
           <div className="font-mono text-[11px] text-zinc-500">
-            Veri Yerleşimi: TR-İSTANBUL • E2EE İletişim Protokolü
+            Sunucu Bölgesi: TÜRKİYE • Şifreli İletişim
           </div>
         </div>
       </footer>

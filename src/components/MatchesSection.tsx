@@ -14,7 +14,7 @@ import {
   SlidersHorizontal,
   Copy,
   Check,
-  Compass,
+  XCircle,
 } from 'lucide-react';
 
 interface MatchesSectionProps {
@@ -36,14 +36,15 @@ export const MatchesSection: React.FC<MatchesSectionProps> = ({
     Record<string, 'none' | 'requested' | 'mutual_unlocked'>
   >({});
   const [copiedId, setCopiedId] = useState<string | null>(null);
-  const [filterTier, setFilterTier] = useState<'all' | '80plus' | '60plus'>('all');
+  const [hideRedBlocked, setHideRedBlocked] = useState(true);
   const [previewPremiumMode, setPreviewPremiumMode] = useState(false);
 
-  const filteredMatches = matches.filter((m) => {
-    if (filterTier === '80plus') return m.overallScore >= 80;
-    if (filterTier === '60plus') return m.overallScore >= 60;
+  const visibleMatches = matches.filter((m) => {
+    if (hideRedBlocked && m.isBlockedByRedFilter) return false;
     return true;
   });
+
+  const blockedCount = matches.filter((m) => m.isBlockedByRedFilter).length;
 
   const handleRequestContact = (candidateId: string) => {
     setContactRequests((prev) => ({
@@ -59,7 +60,7 @@ export const MatchesSection: React.FC<MatchesSectionProps> = ({
     }));
   };
 
-  const handleCopyIcebreaker = (candidateId: string, text: string) => {
+  const handleCopyMessage = (candidateId: string, text: string) => {
     navigator.clipboard?.writeText(text);
     setCopiedId(candidateId);
     setTimeout(() => setCopiedId(null), 2000);
@@ -71,53 +72,42 @@ export const MatchesSection: React.FC<MatchesSectionProps> = ({
       <div className="border-b border-zinc-300 pb-6 mb-8 flex flex-col lg:flex-row lg:items-end justify-between gap-4">
         <div>
           <span className="font-mono text-xs uppercase tracking-widest text-zinc-500 block mb-2">
-            PSİKOMETRİK HAVUZ SONUÇLARI • {profile.aliasCode}
+            EŞLEŞME HAVUZU SONUÇLARI • {profile.aliasCode}
           </span>
           <h1 className="font-serif text-3xl sm:text-4xl font-semibold text-zinc-900">
-            Frekans ve Karakter Eşleşmelerin
+            Sana Uyumlu Adaylar ve Yüzdeleri
           </h1>
         </div>
 
-        {/* Filtreler */}
+        {/* Kırmızı Kutucuk Filtre Anahtarı */}
         <div className="flex flex-wrap items-center gap-2">
           <button
             type="button"
-            onClick={() => setFilterTier('all')}
-            className={`px-3.5 py-2 text-xs font-mono border transition-colors ${
-              filterTier === 'all'
+            onClick={() => setHideRedBlocked(true)}
+            className={`px-4 py-2 rounded-xl text-xs font-medium border transition-colors ${
+              hideRedBlocked
                 ? 'border-zinc-900 bg-zinc-900 text-white'
-                : 'border-zinc-300 bg-white text-zinc-700 hover:border-zinc-900'
+                : 'border-zinc-300 bg-white text-zinc-700'
             }`}
           >
-            Tüm Adaylar ({matches.length})
+            Sadece Bana Uygun Olanlar ({matches.length - blockedCount})
           </button>
           <button
             type="button"
-            onClick={() => setFilterTier('80plus')}
-            className={`px-3.5 py-2 text-xs font-mono border transition-colors ${
-              filterTier === '80plus'
+            onClick={() => setHideRedBlocked(false)}
+            className={`px-4 py-2 rounded-xl text-xs font-medium border transition-colors ${
+              !hideRedBlocked
                 ? 'border-zinc-900 bg-zinc-900 text-white'
-                : 'border-zinc-300 bg-white text-zinc-700 hover:border-zinc-900'
+                : 'border-zinc-300 bg-white text-zinc-700'
             }`}
           >
-            %80+ Yüksek Kimya
-          </button>
-          <button
-            type="button"
-            onClick={() => setFilterTier('60plus')}
-            className={`px-3.5 py-2 text-xs font-mono border transition-colors ${
-              filterTier === '60plus'
-                ? 'border-zinc-900 bg-zinc-900 text-white'
-                : 'border-zinc-300 bg-white text-zinc-700 hover:border-zinc-900'
-            }`}
-          >
-            %60+ Şans Denenebilir
+            Kırmızı Kutucuğa Takılanları da Göster ({blockedCount} Elenen)
           </button>
         </div>
       </div>
 
-      {/* Kullanıcının Kendi Güvenlik Rozeti */}
-      <div className="bg-white border border-zinc-300 p-5 mb-8 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+      {/* Kullanıcının Kendi Sabıka Kaydı Durumu */}
+      <div className="bg-white rounded-2xl border border-zinc-200 p-5 mb-8 flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-sm">
         <div className="flex items-start sm:items-center gap-3.5">
           <ShieldCheck
             className={`w-5 h-5 shrink-0 ${
@@ -126,15 +116,15 @@ export const MatchesSection: React.FC<MatchesSectionProps> = ({
           />
           <div className="text-xs">
             <span className="font-semibold text-zinc-900 block">
-              Güvenlik & Doğrulama Rozetin:{' '}
+              Sabıka Kaydı Doğrulama Durumun:{' '}
               {userCriminalAnalysis.status === 'clean'
-                ? 'ONAYLANDI (E-DEVLET ADLİ SİCİL & YAŞ DOĞRULANDI)'
+                ? 'DOĞRULANDI (ADLİ SİCİL KAYDI YOKTUR)'
                 : userCriminalAnalysis.status === 'has_record'
-                ? 'KAYIT TESPİT EDİLDİ (GÜVENLİK İNCELEMESİNDE)'
-                : 'HENÜZ E-DEVLET GÜVENLİK ROZETİ ALINMADI'}
+                ? 'KAYIT TESPİT EDİLDİ'
+                : 'HENÜZ E-DEVLET SABIKA KAYDI PDF YÜKLENMEDİ'}
             </span>
             <span className="text-zinc-500">
-              Doğrulanmış rozete sahip profillerin tanışma istekleri %74 daha yüksek oranla kabul edilir.
+              e-Devlet sabıka kaydını doğrulayan kullanıcılar eşleşmelerde öncelikli gösterilir.
             </span>
           </div>
         </div>
@@ -144,31 +134,33 @@ export const MatchesSection: React.FC<MatchesSectionProps> = ({
             <button
               type="button"
               onClick={onGoToCriminalCheck}
-              className="px-4 py-2 border border-zinc-900 bg-zinc-900 text-white text-xs font-mono uppercase tracking-wider whitespace-nowrap hover:bg-zinc-800 transition-colors"
+              className="px-4 py-2 rounded-xl border border-zinc-900 bg-zinc-900 text-white text-xs font-semibold uppercase tracking-wider whitespace-nowrap hover:bg-zinc-800"
             >
-              Güvenlik Rozeti Al
+              Sabıka Kaydı PDF Yükle
             </button>
           )}
           <button
             type="button"
             onClick={onGoToQuestionnaire}
-            className="px-4 py-2 border border-zinc-300 bg-white text-zinc-800 hover:border-zinc-900 text-xs font-mono uppercase tracking-wider whitespace-nowrap flex items-center gap-1.5 transition-colors"
+            className="px-4 py-2 rounded-xl border border-zinc-300 bg-white text-zinc-800 hover:border-zinc-900 text-xs font-semibold uppercase tracking-wider whitespace-nowrap flex items-center gap-1.5"
           >
             <SlidersHorizontal className="w-3.5 h-3.5" />
-            <span>Testi Düzenle</span>
+            <span>Cevaplarımı Değiştir</span>
           </button>
         </div>
       </div>
 
       {/* Eşleşme Kartları Listesi */}
       <div className="space-y-8">
-        {filteredMatches.map((item, idx) => {
+        {visibleMatches.map((item, idx) => {
           const {
             candidate,
             overallScore,
+            isBlockedByRedFilter,
+            blockedReasons,
             verdictHeadline,
             verdictAdvice,
-            icebreakerSuggestion,
+            firstMessageIdea,
             categoryScores,
           } = item;
           const reqState = contactRequests[candidate.id] || 'none';
@@ -180,41 +172,50 @@ export const MatchesSection: React.FC<MatchesSectionProps> = ({
           return (
             <article
               key={candidate.id}
-              className="bg-white border border-zinc-300 overflow-hidden transition-shadow hover:shadow-md"
+              className={`bg-white rounded-3xl border overflow-hidden shadow-sm transition-shadow hover:shadow-md ${
+                isBlockedByRedFilter ? 'border-red-300' : 'border-zinc-200'
+              }`}
             >
               {/* Üst Kimlik Şeridi */}
-              <div className="border-b border-zinc-300 bg-[#FAF8F5] px-6 py-4 flex flex-col md:flex-row md:items-center justify-between gap-3">
+              <div className="border-b border-zinc-200 bg-[#FAF8F5] px-6 py-4 flex flex-col md:flex-row md:items-center justify-between gap-3">
                 <div className="flex flex-wrap items-center gap-3">
-                  <span className="font-mono text-xs px-2 py-0.5 bg-zinc-900 text-white">
+                  <span className="font-mono text-xs px-2.5 py-1 rounded-lg bg-zinc-900 text-white">
                     #{String(idx + 1).padStart(2, '0')}
                   </span>
                   <span className="font-mono text-xs font-bold text-zinc-900">
                     {candidate.poolCode}
                   </span>
                   <span className="text-zinc-300">|</span>
-                  <span className="text-xs font-medium text-zinc-700">
+                  <span className="text-xs font-semibold text-zinc-800">
                     {candidate.age} Yaş • {candidate.city} • {candidate.profession}
-                  </span>
-                  <span className="text-zinc-300 hidden sm:inline">|</span>
-                  <span className="font-mono text-[11px] text-zinc-500">
-                    Mod: {candidate.relationshipDynamic}
                   </span>
                 </div>
 
-                <div className="flex items-center gap-2 text-xs font-mono text-emerald-800 bg-emerald-50 border border-emerald-200 px-3 py-1">
+                <div className="flex items-center gap-2 text-xs font-medium text-emerald-800 bg-emerald-50 border border-emerald-200 px-3 py-1 rounded-lg">
                   <ShieldCheck className="w-3.5 h-3.5 shrink-0" />
                   <span>
-                    Doğrulanmış Profil ({candidate.criminalRecord.barcodeMasked})
+                    e-Devlet Sabıka Kaydı Yoktur ({candidate.criminalRecord.barcodeMasked})
                   </span>
                 </div>
               </div>
 
+              {/* Kırmızı Kutucuk Engeli Varsa Uyarı */}
+              {isBlockedByRedFilter && (
+                <div className="bg-red-50 border-b border-red-200 px-6 py-3 flex items-start gap-2.5 text-xs text-red-900">
+                  <XCircle className="w-4 h-4 text-[#B90E0A] shrink-0 mt-0.5" />
+                  <div>
+                    <strong>Kırmızı Kutucuk Filtresine Takıldı:</strong>{' '}
+                    {blockedReasons.join(' • ')}
+                  </div>
+                </div>
+              )}
+
               {/* Ana İçerik Gövdesi */}
               <div className="p-6 sm:p-8 grid grid-cols-1 lg:grid-cols-12 gap-8">
-                {/* Sol Sütun: Dairesel Animasyonlu Yüzde Skoru, Yorum ve Tanıtım */}
+                {/* Sol Sütun: Yüzde Skoru, Adayın Kimlik Kutucukları ve Tanıtımı */}
                 <div className="lg:col-span-7 space-y-6">
                   <div className="flex flex-col sm:flex-row sm:items-center gap-6 pb-6 border-b border-zinc-200">
-                    {/* Animasyonlu SVG Frekans Halkası */}
+                    {/* Dairesel Yüzde Halkası */}
                     <div className="relative w-28 h-28 shrink-0 flex items-center justify-center">
                       <svg className="w-28 h-28 -rotate-90" viewBox="0 0 100 100">
                         <circle
@@ -229,18 +230,26 @@ export const MatchesSection: React.FC<MatchesSectionProps> = ({
                           cx="50"
                           cy="50"
                           r={radius}
-                          stroke={overallScore >= 85 ? '#065f46' : overallScore >= 65 ? '#18181b' : '#b45309'}
+                          stroke={
+                            isBlockedByRedFilter
+                              ? '#B90E0A'
+                              : overallScore >= 85
+                              ? '#065f46'
+                              : overallScore >= 65
+                              ? '#18181b'
+                              : '#b45309'
+                          }
                           strokeWidth="8"
                           strokeDasharray={circumference}
                           strokeDashoffset={strokeDashoffset}
-                          strokeLinecap="butt"
+                          strokeLinecap="round"
                           fill="transparent"
                           className="transition-all duration-700 ease-out"
                         />
                       </svg>
                       <div className="absolute inset-0 flex flex-col items-center justify-center">
                         <span className="font-mono text-[9px] uppercase tracking-widest text-zinc-400">
-                          FREKANS
+                          UYUM
                         </span>
                         <span className="font-serif text-3xl font-bold text-zinc-900">
                           %{overallScore}
@@ -258,58 +267,54 @@ export const MatchesSection: React.FC<MatchesSectionProps> = ({
                     </div>
                   </div>
 
-                  {/* Adayın Kendini Tanıtma Notu & Favori Vibe */}
-                  <div className="space-y-3">
-                    <div className="p-4 bg-[#FAF8F5] border border-zinc-200 space-y-2">
-                      <span className="block font-mono text-[10px] uppercase tracking-wider text-zinc-400">
-                        ADAYIN KENDİ CÜMLELERİYLE TANITIMI ({candidate.education})
+                  {/* Adayın Tüm Özellik Etiketleri (İnanç, Mezhep, Cemaat, Siyaset, Takım, Spor, Alkol, Giyim) */}
+                  <div>
+                    <span className="block text-[11px] font-semibold uppercase tracking-wider text-zinc-400 mb-2.5">
+                      ADAYIN KİMLİK VE TERCİH ÖZETİ
+                    </span>
+                    <div className="flex flex-wrap gap-2 text-xs">
+                      <span className="px-3 py-1.5 rounded-lg bg-zinc-100 text-zinc-800 font-medium">
+                        <strong>İnanç:</strong> {candidate.tags.inanc}
                       </span>
-                      <p className="text-sm text-zinc-800 leading-relaxed">
-                        “{candidate.shortIntro}”
-                      </p>
-                      <div className="pt-2 border-t border-zinc-200/80 flex items-center gap-2 text-xs text-zinc-600">
-                        <Compass className="w-3.5 h-3.5 text-zinc-900 shrink-0" />
-                        <span>
-                          <strong>Favori Ritmi:</strong> {candidate.favoriteVibe}
-                        </span>
-                      </div>
-                    </div>
-
-                    {/* Akıllı İlk Mesaj / Buzkıran (Arthur Aron Yakınlık Kancası) */}
-                    <div className="p-4 border border-zinc-300 bg-white flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                      <div className="text-xs">
-                        <span className="font-mono text-[10px] uppercase tracking-wider text-zinc-400 block mb-1">
-                          ORTAK FREKANSA GÖRE İLK MESAJ ÖNERİSİ (ICEBREAKER)
-                        </span>
-                        <p className="text-zinc-700 italic">{icebreakerSuggestion}</p>
-                      </div>
-                      <button
-                        type="button"
-                        onClick={() =>
-                          handleCopyIcebreaker(candidate.id, icebreakerSuggestion)
-                        }
-                        className="px-3 py-2 border border-zinc-300 hover:border-zinc-900 text-xs font-mono shrink-0 flex items-center gap-1.5 self-start sm:self-center"
-                      >
-                        {copiedId === candidate.id ? (
-                          <>
-                            <Check className="w-3.5 h-3.5 text-emerald-700" />
-                            <span>Kopyalandı</span>
-                          </>
-                        ) : (
-                          <>
-                            <Copy className="w-3.5 h-3.5" />
-                            <span>Mesajı Kopyala</span>
-                          </>
-                        )}
-                      </button>
+                      <span className="px-3 py-1.5 rounded-lg bg-zinc-100 text-zinc-800 font-medium">
+                        <strong>Mezhep:</strong> {candidate.tags.mezhep}
+                      </span>
+                      <span className="px-3 py-1.5 rounded-lg bg-zinc-100 text-zinc-800 font-medium">
+                        <strong>Cemaat:</strong> {candidate.tags.cemaat}
+                      </span>
+                      <span className="px-3 py-1.5 rounded-lg bg-zinc-100 text-zinc-800 font-medium">
+                        <strong>Siyasi Görüş:</strong> {candidate.tags.siyaset}
+                      </span>
+                      <span className="px-3 py-1.5 rounded-lg bg-zinc-100 text-zinc-800 font-medium">
+                        <strong>Takım:</strong> {candidate.tags.takim}
+                      </span>
+                      <span className="px-3 py-1.5 rounded-lg bg-zinc-100 text-zinc-800 font-medium">
+                        <strong>Spor:</strong> {candidate.tags.spor}
+                      </span>
+                      <span className="px-3 py-1.5 rounded-lg bg-zinc-100 text-zinc-800 font-medium">
+                        <strong>Alkol:</strong> {candidate.tags.alkol}
+                      </span>
+                      <span className="px-3 py-1.5 rounded-lg bg-zinc-100 text-zinc-800 font-medium">
+                        <strong>Giyim:</strong> {candidate.tags.giyim}
+                      </span>
                     </div>
                   </div>
 
-                  {/* Ortak Noktalar & Konuşulması Gerekenler */}
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-1">
-                    <div className="border border-zinc-200 p-4 bg-[#FAF8F5]/50">
-                      <span className="block font-mono text-[10px] uppercase tracking-wider text-emerald-800 font-semibold mb-2">
-                        YAKALADIĞINIZ ORTAK FREKANSLAR
+                  {/* Adayın Kendini Tanıtma Notu */}
+                  <div className="p-4 rounded-2xl bg-[#FAF8F5] border border-zinc-200 space-y-2">
+                    <span className="block text-[10px] font-semibold uppercase tracking-wider text-zinc-400">
+                      KENDİNİ TANITMA YAZISI
+                    </span>
+                    <p className="text-sm text-zinc-800 leading-relaxed">
+                      “{candidate.shortIntro}”
+                    </p>
+                  </div>
+
+                  {/* Ortak Noktalar & Farklılıklar */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div className="rounded-2xl border border-zinc-200 p-4 bg-[#FAF8F5]/50">
+                      <span className="block text-[11px] uppercase tracking-wider text-emerald-800 font-bold mb-2">
+                        ANLAŞTIĞINIZ KONULAR
                       </span>
                       {item.sharedStrengths.length > 0 ? (
                         <ul className="space-y-1.5 text-xs text-zinc-700">
@@ -322,54 +327,52 @@ export const MatchesSection: React.FC<MatchesSectionProps> = ({
                         </ul>
                       ) : (
                         <p className="text-xs text-zinc-500">
-                          Doğrudan birebir örtüşen ana eksen sayısı sınırlı.
+                          Birebir aynı seçtiğiniz başlık sayısı az.
                         </p>
                       )}
                     </div>
 
-                    <div className="border border-zinc-200 p-4 bg-[#FAF8F5]/50">
-                      <span className="block font-mono text-[10px] uppercase tracking-wider text-amber-800 font-semibold mb-2">
-                        FARKLI DÜŞÜNDÜĞÜNÜZ NOKTALAR
+                    <div className="rounded-2xl border border-zinc-200 p-4 bg-[#FAF8F5]/50">
+                      <span className="block text-[11px] uppercase tracking-wider text-amber-800 font-bold mb-2">
+                        FARKLI DÜŞÜNDÜĞÜNÜZ KONULAR
                       </span>
-                      {item.hardConflicts.length > 0 || item.talkingPoints.length > 0 ? (
+                      {item.talkingPoints.length > 0 ? (
                         <ul className="space-y-1.5 text-xs text-zinc-700">
-                          {[...item.hardConflicts, ...item.talkingPoints]
-                            .slice(0, 3)
-                            .map((t, i) => (
-                              <li key={i} className="flex items-start gap-2">
-                                <AlertTriangle className="w-3.5 h-3.5 text-amber-700 shrink-0 mt-0.5" />
-                                <span>{t}</span>
-                              </li>
-                            ))}
+                          {item.talkingPoints.map((t, i) => (
+                            <li key={i} className="flex items-start gap-2">
+                              <AlertTriangle className="w-3.5 h-3.5 text-amber-700 shrink-0 mt-0.5" />
+                              <span>{t}</span>
+                            </li>
+                          ))}
                         </ul>
                       ) : (
                         <p className="text-xs text-emerald-800">
-                          Kritik başlıklarda hiçbir kırmızı çizgi çatışması tespit edilmedi.
+                          Temel konularda belirgin bir zıtlığınız yok.
                         </p>
                       )}
                     </div>
                   </div>
                 </div>
 
-                {/* Sağ Sütun: 6 Eksenli Uyum Matrisi & "İletişim Kurmak İster misin?" Modülü */}
+                {/* Sağ Sütun: Kategori Uyum Çubukları & "İletişim Kurmak İster misin?" Modülü */}
                 <div className="lg:col-span-5 flex flex-col justify-between border-t lg:border-t-0 lg:border-l border-zinc-200 pt-6 lg:pt-0 lg:pl-8">
                   <div>
-                    <span className="block font-mono text-[11px] uppercase tracking-wider text-zinc-500 mb-4">
-                      6 BOYUTLU PSİKOMETRİK UYUM ANALİZİ
+                    <span className="block text-xs font-bold uppercase tracking-wider text-zinc-500 mb-4">
+                      KONU BAZLI UYUM ORANLARI
                     </span>
 
-                    <div className="space-y-3.5 mb-8">
+                    <div className="space-y-3.5 mb-6">
                       {categoryScores.map((cat) => (
                         <div key={cat.category}>
                           <div className="flex items-center justify-between text-xs mb-1">
                             <span className="font-medium text-zinc-800">{cat.label}</span>
-                            <span className="font-mono font-semibold text-zinc-900">
+                            <span className="font-mono font-bold text-zinc-900">
                               %{cat.score}
                             </span>
                           </div>
-                          <div className="w-full h-2 bg-zinc-200 overflow-hidden">
+                          <div className="w-full h-2 rounded-full bg-zinc-200 overflow-hidden">
                             <div
-                              className={`h-full transition-all duration-500 ease-out ${
+                              className={`h-full rounded-full transition-all duration-500 ease-out ${
                                 cat.score >= 85
                                   ? 'bg-zinc-900'
                                   : cat.score >= 65
@@ -382,25 +385,52 @@ export const MatchesSection: React.FC<MatchesSectionProps> = ({
                         </div>
                       ))}
                     </div>
+
+                    {/* İlk Mesaj Önerisi */}
+                    <div className="p-3.5 rounded-2xl border border-zinc-200 bg-[#FAF8F5] mb-6 flex items-center justify-between gap-3">
+                      <div className="text-xs">
+                        <span className="text-[10px] font-bold uppercase text-zinc-400 block mb-0.5">
+                          HAZIR TANIŞMA MESAJI
+                        </span>
+                        <p className="text-zinc-700 italic">{firstMessageIdea}</p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => handleCopyMessage(candidate.id, firstMessageIdea)}
+                        className="px-3 py-2 rounded-lg border border-zinc-300 bg-white hover:border-zinc-900 text-xs font-medium shrink-0 flex items-center gap-1"
+                      >
+                        {copiedId === candidate.id ? (
+                          <>
+                            <Check className="w-3.5 h-3.5 text-emerald-700" />
+                            <span>Kopyalandı</span>
+                          </>
+                        ) : (
+                          <>
+                            <Copy className="w-3.5 h-3.5" />
+                            <span>Kopyala</span>
+                          </>
+                        )}
+                      </button>
+                    </div>
                   </div>
 
                   {/* İletişim Kurmak İster misin? Kutusu */}
-                  <div className="border border-zinc-300 bg-[#FAF8F5] p-5">
-                    <span className="block font-mono text-[10px] uppercase tracking-wider text-zinc-500 mb-1">
-                      KARŞILIKLI ONAYLI & UÇTAN UCA ŞİFRELİ KANAL
+                  <div className="rounded-2xl border border-zinc-300 bg-[#FAF8F5] p-5">
+                    <span className="block text-[10px] font-bold uppercase tracking-wider text-zinc-500 mb-1">
+                      KARŞILIKLI ONAYLI İLETİŞİM
                     </span>
                     <h3 className="font-serif text-lg font-semibold text-zinc-900 mb-2">
                       İletişim kurmak ister misin?
                     </h3>
 
                     {previewPremiumMode ? (
-                      <div className="p-4 border border-zinc-300 bg-white text-xs text-zinc-700 space-y-2">
-                        <div className="flex items-center gap-2 font-mono font-semibold text-zinc-900">
+                      <div className="p-4 rounded-xl border border-zinc-300 bg-white text-xs text-zinc-700 space-y-2">
+                        <div className="flex items-center gap-2 font-semibold text-zinc-900">
                           <Lock className="w-4 h-4" />
-                          <span>PREMIUM ÜYELİK KİLİDİ AKTİF (ÖNİZLEME)</span>
+                          <span>PREMIUM ÜYELİK KİLİDİ AKTİF</span>
                         </div>
                         <p className="text-zinc-600 leading-relaxed">
-                          Tanışma isteği göndermek ve uçtan uca şifreli iletişim bilgilerini açmak Premium üyelik kapsamındadır.
+                          İletişim isteği göndermek ve karşı tarafın iletişim bilgilerini görmek Premium üyelik kapsamındadır.
                         </p>
                       </div>
                     ) : (
@@ -408,28 +438,28 @@ export const MatchesSection: React.FC<MatchesSectionProps> = ({
                         {reqState === 'none' && (
                           <div>
                             <p className="text-xs text-zinc-600 leading-relaxed mb-4">
-                              İstek gönderdiğinde karşı tarafa yalnızca anonim frekans kartın ve doğrulama rozetin iletilir. Karşı taraf da onaylarsa gerçek iletişim bilgileri açılır.
+                              İstek gönderdiğinde karşı tarafa uyum yüzdeniz ve sabıka kaydı doğrulama durumun iletilir. O da onaylarsa gerçek iletişim bilgileriniz açılır.
                             </p>
                             <button
                               type="button"
                               onClick={() => handleRequestContact(candidate.id)}
-                              className="w-full py-3 px-4 bg-zinc-900 hover:bg-zinc-800 text-white text-xs font-mono uppercase tracking-wider flex items-center justify-center gap-2 transition-all hover:-translate-y-0.5"
+                              className="w-full py-3.5 px-4 rounded-xl bg-zinc-900 hover:bg-zinc-800 text-white text-xs font-semibold uppercase tracking-wider flex items-center justify-center gap-2 transition-all"
                             >
                               <MessageSquare className="w-4 h-4" />
-                              <span>Tanışma İsteği Gönder (%{overallScore} Uyum)</span>
+                              <span>İletişim Kurmak İster misin? (%{overallScore} Uyum)</span>
                             </button>
                           </div>
                         )}
 
                         {reqState === 'requested' && (
                           <div className="space-y-3 animate-section-enter">
-                            <div className="p-3 bg-white border border-zinc-300 text-xs text-zinc-800">
-                              <strong>İstek İletildi:</strong> {candidate.poolCode} kodlu adayın onayı bekleniyor.
+                            <div className="p-3 rounded-xl bg-white border border-zinc-300 text-xs text-zinc-800">
+                              <strong>İstek Gönderildi:</strong> {candidate.poolCode} kodlu adayın onayı bekleniyor.
                             </div>
                             <button
                               type="button"
                               onClick={() => handleSimulateMutualApproval(candidate.id)}
-                              className="w-full py-2.5 px-4 border border-zinc-900 bg-white hover:bg-zinc-100 text-zinc-900 text-xs font-mono uppercase tracking-wider"
+                              className="w-full py-2.5 px-4 rounded-xl border border-zinc-900 bg-white hover:bg-zinc-100 text-zinc-900 text-xs font-semibold uppercase tracking-wider"
                             >
                               [Demo] Karşı Tarafın Onayını Simüle Et →
                             </button>
@@ -437,22 +467,22 @@ export const MatchesSection: React.FC<MatchesSectionProps> = ({
                         )}
 
                         {reqState === 'mutual_unlocked' && (
-                          <div className="p-4 bg-emerald-950 text-white space-y-2.5 animate-section-enter">
+                          <div className="p-4 rounded-xl bg-emerald-950 text-white space-y-2.5 animate-section-enter">
                             <div className="flex items-center justify-between text-[11px] font-mono text-emerald-300">
                               <span className="flex items-center gap-1.5">
                                 <Unlock className="w-3.5 h-3.5" />
-                                E2EE ŞİFRELİ İLETİŞİM AÇILDI
+                                ŞİFRELİ İLETİŞİM AÇILDI
                               </span>
                               <span>KARŞILIKLI ONAYLI</span>
                             </div>
-                            <div className="p-2.5 bg-black/40 border border-emerald-800 font-mono text-xs break-all">
+                            <div className="p-2.5 rounded-lg bg-black/40 border border-emerald-800 font-mono text-xs break-all">
                               {candidate.encryptedContactHandle.replace(
                                 '(Karşılıklı Onayda Açılır)',
                                 '49 82 (Doğrulandı)'
                               )}
                             </div>
                             <p className="text-[11px] text-emerald-200/90 leading-relaxed">
-                              Senin iletişim bilgin ({profile.contactChannel}) de güvenli anahtar değişimiyle karşı tarafa açıldı.
+                              Senin iletişim bilgin ({profile.contactChannel}) de karşı tarafa açıldı.
                             </p>
                           </div>
                         )}
@@ -466,24 +496,24 @@ export const MatchesSection: React.FC<MatchesSectionProps> = ({
         })}
       </div>
 
-      {/* Kurucu / Yönetici Özellik Bayrağı Kontrolü (Premium Switch) */}
-      <div className="mt-12 p-6 border border-zinc-300 bg-white flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+      {/* Kurucu / Yönetici Premium Kontrolü */}
+      <div className="mt-12 p-6 rounded-2xl border border-zinc-300 bg-white flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <span className="font-mono text-[10px] uppercase tracking-widest text-zinc-400 block mb-1">
-            KURUCU / YÖNETİCİ KONTROL PANELİ (FEATURE FLAG)
+            YÖNETİCİ KONTROLÜ
           </span>
           <h4 className="font-semibold text-sm text-zinc-900">
-            Premium Üyelik Kilidi: Şu An Kapalı (Ücretsiz Erken Erişim Modu)
+            Premium Üyelik Kilidi: Şu An Kapalı (Ücretsiz Mod)
           </h4>
           <p className="text-xs text-zinc-500 mt-0.5">
-            Kullanıcı havuzu hedeflediğiniz büyüklüğe ulaştığında tek tuşla Premium kilit mekanizmasını devreye alabilirsiniz.
+            İstediğin zaman tek tuşla iletişim kurma ve sabıka kaydı özelliklerini Premium üyeliğe bağlayabilirsin.
           </p>
         </div>
 
         <button
           type="button"
           onClick={() => setPreviewPremiumMode(!previewPremiumMode)}
-          className={`px-4 py-2.5 text-xs font-mono uppercase tracking-wider border shrink-0 whitespace-nowrap transition-colors ${
+          className={`px-4 py-2.5 rounded-xl text-xs font-semibold uppercase tracking-wider border shrink-0 whitespace-nowrap transition-colors ${
             previewPremiumMode
               ? 'border-zinc-900 bg-zinc-900 text-white'
               : 'border-zinc-300 bg-[#FAF8F5] text-zinc-800 hover:border-zinc-900'

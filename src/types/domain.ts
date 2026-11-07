@@ -1,25 +1,26 @@
 export type QuestionCategory =
-  | 'inanc_maneviyat'
-  | 'dunya_gorusu_degerler'
-  | 'yasam_tarzi_sosyal'
-  | 'maddi_dinamikler'
-  | 'iletisim_sinirlar'
-  | 'gelecek_vizyonu';
+  | 'inanc_cemaat'
+  | 'siyaset_dunya_gorusu'
+  | 'meslek_yasam'
+  | 'takim_spor_hobi'
+  | 'sosyal_aliskanlik'
+  | 'iliski_sinirlari';
 
-export type QuestionLayoutShape =
-  | 'bento_2x2'
-  | 'versus_split'
-  | 'spectrum_horizontal'
-  | 'editorial_cards';
-
-export interface QuestionOption {
+export interface ChipOption {
   id: string;
-  shortTag: string;
   label: string;
-  subtext: string;
-  weightVector: number[];
-  compatibleWith: string[];
-  partialCompatibleWith: string[];
+  groupTag?: string; // Uyum motoru için grup kodu
+}
+
+export interface AdaptiveFollowUp {
+  triggerOptionIds: string[]; // Hangi ana cevaplar seçildiğinde bu alt soru açılır ('*' ise her zaman açılır)
+  id: string;
+  title: string;
+  subtitle?: string;
+  mode: 'single_select' | 'red_exclusion_multi'; // Normal seçim mi yoksa 3. fotoğraftaki kırmızı "Kesinlikle İstemem" kutucukları mı?
+  options: ChipOption[];
+  allowCustomOther?: boolean;
+  allowPreferNotToSay?: boolean;
 }
 
 export interface QuestionItem {
@@ -27,18 +28,21 @@ export interface QuestionItem {
   code: string;
   category: QuestionCategory;
   categoryLabel: string;
-  layoutShape: QuestionLayoutShape;
-  psychModel: string;
   prompt: string;
-  scenarioContext: string;
-  options: QuestionOption[];
-  defaultDealbreakerWeight: number;
+  helperText: string;
+  options: ChipOption[];
+  allowCustomOther: boolean;
+  allowPreferNotToSay: boolean;
+  followUps: AdaptiveFollowUp[];
 }
 
 export interface UserAnswer {
   questionId: string;
-  selectedOptionId: string;
-  isDealbreaker: boolean;
+  selectedOptionId: string; // Ana soruda seçilen kutucuk ID'si ('other_custom' veya 'prefer_not_to_say' dahil)
+  customOtherText?: string; // "Diğer" seçildiyse kullanıcının yazdığı metin
+  followUpSingleAnswers: Record<string, string>; // Alt sorulardaki tekli seçimler
+  followUpCustomTexts: Record<string, string>; // Alt sorulardaki "Diğer" metinleri
+  excludedRedIds: string[]; // 3. fotoğraftaki gibi kırmızı işaretlenen "Kesinlikle İstemem" ID'leri
 }
 
 export interface UserSelfProfile {
@@ -48,7 +52,6 @@ export interface UserSelfProfile {
   age: number;
   city: string;
   profession: string;
-  education: string;
   relationshipDynamic: string;
   bio: string;
   contactChannel: string;
@@ -96,7 +99,6 @@ export interface CandidateProfile {
   age: number;
   city: string;
   profession: string;
-  education: string;
   relationshipDynamic: string;
   shortIntro: string;
   expectationsNote: string;
@@ -107,8 +109,21 @@ export interface CandidateProfile {
     barcodeMasked: string;
     verifiedDate: string;
   };
-  answers: Record<string, string>;
-  dealbreakers: string[];
+  tags: {
+    inanc: string;
+    mezhep: string;
+    cemaat: string;
+    siyaset: string;
+    takim: string;
+    spor: string;
+    meslek: string;
+    alkol: string;
+    giyim: string;
+    muzik: string;
+    kiskanclik: string;
+  };
+  allTraitIds: string[]; // Adayın sahip olduğu tüm özellik ID'leri (Kırmızı kutucuk filtrelemesi için)
+  excludedTraitIds: string[]; // Adayın kesinlikle istemediği özellik ID'leri
   encryptedContactHandle: string;
 }
 
@@ -119,7 +134,7 @@ export interface CategoryScoreBreakdown {
 }
 
 export type MatchTier =
-  | 'yuksek_kimya'
+  | 'yuksek_uyum'
   | 'ciddi_uyum'
   | 'sans_denenebilir'
   | 'dusuk_uyum';
@@ -127,13 +142,14 @@ export type MatchTier =
 export interface MatchAnalysisResult {
   candidate: CandidateProfile;
   overallScore: number;
+  isBlockedByRedFilter: boolean;
+  blockedReasons: string[];
   tier: MatchTier;
   verdictBadge: string;
   verdictHeadline: string;
   verdictAdvice: string;
-  icebreakerSuggestion: string;
+  firstMessageIdea: string;
   categoryScores: CategoryScoreBreakdown[];
   sharedStrengths: string[];
   talkingPoints: string[];
-  hardConflicts: string[];
 }
