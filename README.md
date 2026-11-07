@@ -1,14 +1,14 @@
-# Mizan - Evlilik Uyum ve Dogrulama Havuzu
+# Mizan - Frekans, Karakter ve Guven Odakli Tanisma Platformu
 
-Klasik kaydirma tabanli flort uygulamalarindan farkli olarak; evlilikte uzun vadeli uyumu belirleyen temel degerler, inanc pratigi, dunya gorusu, aile sinirlari, ekonomik beklentiler ve e-Devlet adli sicil dogrulamasi uzerinden calisan kapali devre eslesme uygulamasi.
+Yuzeysel kaydirma tabanli uygulamalarin aksine; psikometrik deger uyumu, yasam ritmi, dunya gorusu, iletisim sinirlari ve e-Devlet adli sicil dogrulamasi uzerinden calisan yeni nesil tanisma uygulamasi.
 
 ## Temel Ozellikler
 
-- **6 Eksenli Deger ve Kirmizi Cizgi Matrisi:** Inanc pratigi, toplumsal kimlik, sosyal sinirlar, ev ekonomisi, kriz yonetimi ve aile duzeni basliklarinda senaryo bazli anket yapisi.
-- **Zorlastirilmis Puanlama Algoritmasi:** Agirlikli vektor uzakligi ve kirmizi cizgi (dealbreaker) kurallarina gore adaylari `%90+ (Dogrudan Nikah Adayi)`, `%80-89 (Nisan / Ciddi Yol)` ve `%60-79 (Sans Denenebilir)` esiklerinde siniflandirir.
+- **Psikometrik Kesif ve Dinamik Soru Formatlari:** Schwartz Deger Kurami, Big Five, Baglanma Kurami ve Gottman Iletisim Modellerini temel alan 12 adimli interaktif kesif akisi (`2x2 Bento Matrisi`, `Yatay Frekans Spektrumu`, `Karsilastirmali Kartlar` ve `Senaryo Tepki Olcegi`).
+- **Canli Karakter Arketipi Analizi:** Kullanici sorulari yanitladikca gercek zamanli olarak 4 eksenli karakter profilini ve iliski dinamigini cozumler.
+- **Kirmizi Cizgi ve Frekans Algoritmasi:** Agirlikli vektor uzakligi ve kirmizi cizgi (dealbreaker) kurallarina gore adaylari `%90+ (Yuksek Kimya)`, `%80-89 (Uzun Vadeli Potansiyel)` ve `%60-79 (Sans Denenebilir)` esiklerinde eslestirir; ortak noktalara gore otomatik ilk mesaj (icebreaker) uretir.
 - **e-Devlet Barkodlu Adli Sicil PDF Analizi:** Kullanicinin yukledigi e-Devlet Adli Sicil PDF belgesini istemci belleginde (RAM) okuyarak `ADB` barkodunu, `MERNIS` kimlik kontrolunu, dogum yili/yas dogrulamasini ve `"YUKARIDA KIMLIK BILGILERI BULUNAN KISININ ADLI SICIL KAYDI YOKTUR."` sonuc blogunu dogrular.
-- **6698 Sayili KVKK Madde 6 Uyumu:** Ozel nitelikli veriler (inanc, felsefi gorus, adli sicil durumu) genel aydinlatma metninden ayri acik riza beyaniyla islenir. Yuklenen PDF dosyalari diske kaydedilmez; dogrulama sonrasi bellekten silinerek yalnizca SHA-256 dogrulama ozeti tutulur.
-- **Anonim Havuz ve Sifreli Iletisim:** Havuzdaki adaylar `#TR-XXXX` vekil koduyla listelenir. Gercek iletisim bilgileri yalnizca iki taraf da karsilikli onay verdiginde acilir.
+- **6698 Sayili KVKK Madde 6 Uyumu:** Ozel nitelikli veriler genel aydinlatma metninden ayri acik riza beyaniyla islenir. Yuklenen PDF dosyalari diske kaydedilmez; dogrulama sonrasi bellekten silinerek yalnizca SHA-256 dogrulama ozeti tutulur.
 
 ## Gelistirme Ortami
 
@@ -24,7 +24,3 @@ Production derlemesi:
 ```bash
 npm run build
 ```
-
-## Yapilandirma
-
-`.env.example` dosyasini `.env` olarak kopyalayip ortam degiskenlerini duzenleyebilirsiniz. `VITE_PREMIUM_ENABLED` degiskeni erken erisim havuzu doneminde `false` olarak ayarlanmistir.

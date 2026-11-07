@@ -87,12 +87,12 @@ export function App() {
     aliasCode: 'ADAY #TR-8941',
     gender: 'erkek',
     lookingFor: 'kadin',
-    age: 28,
+    age: 26,
     city: 'İstanbul',
     profession: 'Yazılım & Teknoloji Girişimcisi',
     education: 'Lisans',
-    marriageTimeline: '6 - 12 Ay İçinde',
-    bio: 'Net değerleri olan, ailesine ve maneviyata önem veren, huzurlu ve ciddi bir yuva kurmak isteyen biriyim.',
+    relationshipDynamic: 'Uzun Vadeli & Ciddi İlişki',
+    bio: 'Net değerleri olan, derin sohbeti ve samimiyeti önemseyen, aynı frekansta buluşabileceği kafa dengi birini arayan biriyim.',
     contactChannel: '+90 (532) 890 ** **',
   });
 
@@ -348,13 +348,13 @@ export function App() {
         )}
       </main>
 
-      {/* Kurumsal Alt Bilgi */}
+      {/* Alt Bilgi */}
       <footer className="border-t border-zinc-300 bg-white py-8 mt-16">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 text-xs text-zinc-500">
           <div>
             <span className="font-serif font-bold text-zinc-900 mr-2">MİZAN</span>
             <span>
-              Değer, Karakter ve Güven Doğrulamalı Evlilik Uyum Havuzu • 6698 Sayılı KVKK Madde 6 Uyumlu Mimari
+              Psikometrik Uyum, Frekans ve Güven Doğrulamalı Tanışma Platformu • KVKK Madde 6 Uyumlu Mimari
             </span>
           </div>
           <div className="font-mono text-[11px] text-zinc-500">

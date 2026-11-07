@@ -2,12 +2,19 @@ export type QuestionCategory =
   | 'inanc_maneviyat'
   | 'dunya_gorusu_degerler'
   | 'yasam_tarzi_sosyal'
-  | 'evlilik_ekonomi'
-  | 'kriz_iletisim'
-  | 'aile_gelecek';
+  | 'maddi_dinamikler'
+  | 'iletisim_sinirlar'
+  | 'gelecek_vizyonu';
+
+export type QuestionLayoutShape =
+  | 'bento_2x2'
+  | 'versus_split'
+  | 'spectrum_horizontal'
+  | 'editorial_cards';
 
 export interface QuestionOption {
   id: string;
+  shortTag: string;
   label: string;
   subtext: string;
   weightVector: number[];
@@ -20,6 +27,8 @@ export interface QuestionItem {
   code: string;
   category: QuestionCategory;
   categoryLabel: string;
+  layoutShape: QuestionLayoutShape;
+  psychModel: string;
   prompt: string;
   scenarioContext: string;
   options: QuestionOption[];
@@ -40,7 +49,7 @@ export interface UserSelfProfile {
   city: string;
   profession: string;
   education: string;
-  marriageTimeline: string;
+  relationshipDynamic: string;
   bio: string;
   contactChannel: string;
 }
@@ -58,16 +67,16 @@ export interface CriminalRecordAnalysis {
   status: 'unverified' | 'clean' | 'has_record' | 'invalid_document';
   fileName?: string;
   fileSizeKB?: number;
-  barcodeNumber?: string; // Örn: ADB02889192793 -> ADB02889****
-  documentSayi?: string; // Örn: 0000-2026-4371793248 / 13:11
-  documentDate?: string; // Örn: İNTERNET (www.turkiye.gov.tr) / 07.11.2026
-  sorguTuru?: string; // Örn: TİCARET SİCİLİ / RESMİ / ÖZEL
-  kullanimAmaci?: string; // Örn: KENDİM İÇİN
-  kimlikTuru?: string; // Örn: MERNİS
-  maskedTcNo?: string; // Örn: 100******34 (MERNİS Checksum Doğrulandı)
+  barcodeNumber?: string;
+  documentSayi?: string;
+  documentDate?: string;
+  sorguTuru?: string;
+  kullanimAmaci?: string;
+  kimlikTuru?: string;
+  maskedTcNo?: string;
   tcChecksumValid?: boolean;
-  maskedName?: string; // Örn: B*** C***
-  birthPlaceAndYear?: string; // Örn: ÇANKAYA / 2004 (Yaş Doğrulandı)
+  maskedName?: string;
+  birthPlaceAndYear?: string;
   institution?: string;
   adliSicilKaydiYoktur: boolean;
   arsivKaydiYoktur: boolean;
@@ -88,9 +97,10 @@ export interface CandidateProfile {
   city: string;
   profession: string;
   education: string;
-  marriageTimeline: string;
+  relationshipDynamic: string;
   shortIntro: string;
   expectationsNote: string;
+  favoriteVibe: string;
   criminalRecord: {
     verified: boolean;
     clean: boolean;
@@ -109,8 +119,8 @@ export interface CategoryScoreBreakdown {
 }
 
 export type MatchTier =
-  | 'nikah_masasi'
-  | 'nisanlanabilir'
+  | 'yuksek_kimya'
+  | 'ciddi_uyum'
   | 'sans_denenebilir'
   | 'dusuk_uyum';
 
@@ -121,6 +131,7 @@ export interface MatchAnalysisResult {
   verdictBadge: string;
   verdictHeadline: string;
   verdictAdvice: string;
+  icebreakerSuggestion: string;
   categoryScores: CategoryScoreBreakdown[];
   sharedStrengths: string[];
   talkingPoints: string[];

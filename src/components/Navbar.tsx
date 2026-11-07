@@ -27,7 +27,7 @@ export const Navbar: React.FC<NavbarProps> = ({
           onClick={() => onNavigate('hero')}
           className="flex items-center gap-3.5 text-left shrink-0 group"
         >
-          <div className="w-10 h-10 bg-zinc-900 text-[#FAF8F5] flex items-center justify-center font-serif text-lg font-semibold tracking-wider border border-zinc-900">
+          <div className="w-10 h-10 bg-zinc-900 text-[#FAF8F5] flex items-center justify-center font-serif text-lg font-semibold tracking-wider border border-zinc-900 transition-transform group-hover:scale-105">
             M
           </div>
           <div className="shrink-0">
@@ -35,7 +35,7 @@ export const Navbar: React.FC<NavbarProps> = ({
               MİZAN
             </span>
             <span className="block font-mono text-[10px] uppercase tracking-widest text-zinc-500 mt-1 whitespace-nowrap">
-              Evlilik Uyum Havuzu
+              Frekans & Karakter Ağı
             </span>
           </div>
         </button>
@@ -51,7 +51,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                 : 'text-zinc-600 hover:text-zinc-950'
             }`}
           >
-            Sistem
+            Keşfet
           </button>
           <button
             type="button"
@@ -62,7 +62,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                 : 'text-zinc-600 hover:text-zinc-950'
             }`}
           >
-            Anket ({completedQuestionsCount}/{totalQuestionsCount})
+            Frekans Testi ({completedQuestionsCount}/{totalQuestionsCount})
           </button>
           <button
             type="button"
@@ -73,7 +73,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                 : 'text-zinc-600 hover:text-zinc-950'
             }`}
           >
-            Sicil
+            Güvenlik
           </button>
           <button
             type="button"
@@ -95,7 +95,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                 : 'text-zinc-600 hover:text-zinc-950'
             }`}
           >
-            Sözleşme
+            Gizlilik
           </button>
         </nav>
 
@@ -103,22 +103,22 @@ export const Navbar: React.FC<NavbarProps> = ({
         <div className="hidden md:flex items-center gap-3 shrink-0">
           <div className="flex items-center gap-2 px-3 py-2 border border-zinc-300 bg-white text-xs font-mono text-zinc-700 whitespace-nowrap shrink-0">
             <Lock className="w-3.5 h-3.5 text-zinc-700 shrink-0" />
-            <span>{kvkkApproved ? 'KVKK Açık Rıza Onaylı' : 'KVKK Onayı Bekleniyor'}</span>
+            <span>{kvkkApproved ? 'KVKK Onaylı' : 'KVKK Bekleniyor'}</span>
             <span className="text-zinc-300">|</span>
             <ShieldCheck
               className={`w-3.5 h-3.5 shrink-0 ${
                 criminalClean ? 'text-emerald-700' : 'text-zinc-400'
               }`}
             />
-            <span>{criminalClean ? 'Sicil Temiz' : 'Sicil Bekleniyor'}</span>
+            <span>{criminalClean ? 'Onaylı Profil' : 'Sicil Doğrulama'}</span>
           </div>
 
           <button
             type="button"
             onClick={() => onNavigate('anket')}
-            className="px-5 py-2.5 bg-zinc-900 hover:bg-zinc-800 text-white text-xs font-mono uppercase tracking-wider transition-colors whitespace-nowrap shrink-0"
+            className="px-5 py-2.5 bg-zinc-900 hover:bg-zinc-800 text-white text-xs font-mono uppercase tracking-wider transition-all hover:-translate-y-0.5 whitespace-nowrap shrink-0"
           >
-            Analize Başla
+            Teste Başla
           </button>
         </div>
       </div>
@@ -126,17 +126,17 @@ export const Navbar: React.FC<NavbarProps> = ({
       {/* Mobil Alt Gezinme Çubuğu */}
       <div className="flex lg:hidden border-t border-zinc-200 bg-white overflow-x-auto">
         {[
-          { id: 'hero', label: 'Sistem' },
-          { id: 'anket', label: `Anket (${completedQuestionsCount}/${totalQuestionsCount})` },
-          { id: 'sabika', label: 'Adli Sicil' },
+          { id: 'hero', label: 'Keşfet' },
+          { id: 'anket', label: `Test (${completedQuestionsCount}/${totalQuestionsCount})` },
+          { id: 'sabika', label: 'Güvenlik' },
           { id: 'eslesmeler', label: 'Eşleşmeler' },
-          { id: 'kvkk', label: 'KVKK' },
+          { id: 'kvkk', label: 'Gizlilik' },
         ].map((tab) => (
           <button
             key={tab.id}
             type="button"
             onClick={() => onNavigate(tab.id as any)}
-            className={`flex-1 py-2.5 px-3 text-xs font-mono uppercase tracking-wider whitespace-nowrap border-b-2 ${
+            className={`flex-1 py-2.5 px-3 text-xs font-mono uppercase tracking-wider whitespace-nowrap border-b-2 transition-colors ${
               activeSection === tab.id
                 ? 'border-zinc-900 text-zinc-950 font-semibold bg-zinc-50'
                 : 'border-transparent text-zinc-500'

@@ -15,9 +15,85 @@ function vectorSimilarity(vecA: number[], vecB: number[]): number {
     const diff = vecA[i] - vecB[i];
     sumSq += diff * diff;
   }
-  const maxDist = Math.sqrt(vecA.length); // max diff per dim is 1.0
+  const maxDist = Math.sqrt(vecA.length);
   const dist = Math.sqrt(sumSq);
-  return Math.max(0, 1 - dist / (maxDist * 0.72)); // strict curve
+  return Math.max(0, 1 - dist / (maxDist * 0.72));
+}
+
+export interface LiveArchetypeResult {
+  title: string;
+  subtitle: string;
+  traits: { label: string; value: number }[];
+}
+
+export function computeLiveArchetype(
+  userAnswers: Record<string, UserAnswer>
+): LiveArchetypeResult {
+  const answeredList = Object.values(userAnswers);
+  if (answeredList.length === 0) {
+    return {
+      title: 'Profil Çözümleniyor...',
+      subtitle: 'Soruları yanıtladıkça karakter arketipin şekillenecek.',
+      traits: [
+        { label: 'Değer Netliği', value: 25 },
+        { label: 'Sosyal Dinamizm', value: 25 },
+        { label: 'Sınır Hassasiyeti', value: 25 },
+        { label: 'Uzlaşma Esnekliği', value: 25 },
+      ],
+    };
+  }
+
+  let sumV0 = 0;
+  let sumV1 = 0;
+  let sumV2 = 0;
+  let sumV3 = 0;
+  let count = 0;
+
+  for (const ans of answeredList) {
+    const q = QUESTIONS.find((item) => item.id === ans.questionId);
+    const opt = q?.options.find((o) => o.id === ans.selectedOptionId);
+    if (opt && opt.weightVector.length === 4) {
+      sumV0 += opt.weightVector[0];
+      sumV1 += opt.weightVector[1];
+      sumV2 += opt.weightVector[2];
+      sumV3 += opt.weightVector[3];
+      count++;
+    }
+  }
+
+  const avg0 = count > 0 ? sumV0 / count : 0.5;
+  const avg1 = count > 0 ? sumV1 / count : 0.5;
+  const avg2 = count > 0 ? sumV2 / count : 0.5;
+  const avg3 = count > 0 ? sumV3 / count : 0.5;
+
+  let title = 'Dengeli & Seçici Ritim';
+  let subtitle =
+    'Kendi sınırlarını korurken karşı tarafın alanına saygı duyan, yüksek farkındalıklı iletişim profili.';
+
+  if (avg0 >= 0.72) {
+    title = 'Köklü Değer & Sadakat Odaklı';
+    subtitle =
+      'Manevi pusulası net, ilişkide güven, mahremiyet ve derin bağlılığı her şeyin üstünde tutan karakter.';
+  } else if (avg3 >= 0.72) {
+    title = 'Özgür Ruhlu & Çağdaş Vizyoner';
+    subtitle =
+      'Bireysel özerkliğe, eşitlikçi paylaşıma ve entelektüel/sosyal keşfe önem veren modern profil.';
+  } else if (avg1 >= 0.72 && avg2 >= 0.55) {
+    title = 'Sentezci & Uyum Mimarisi';
+    subtitle =
+      'Hem geleneksel sıcaklığı hem de modern şehir dinamiklerini bir arada taşıyabilen birleştirici karakter.';
+  }
+
+  return {
+    title,
+    subtitle,
+    traits: [
+      { label: 'Geleneksel & Manevi Kök', value: Math.round(avg0 * 100) },
+      { label: 'İlişkisel Uyum & Denge', value: Math.round(avg1 * 100) },
+      { label: 'Sosyal Açıklık & Keşif', value: Math.round(avg2 * 100) },
+      { label: 'Bireysel Özerklik', value: Math.round(avg3 * 100) },
+    ],
+  };
 }
 
 export function analyzeCompatibility(
@@ -28,9 +104,9 @@ export function analyzeCompatibility(
     inanc_maneviyat: { weightedSum: 0, totalWeight: 0 },
     dunya_gorusu_degerler: { weightedSum: 0, totalWeight: 0 },
     yasam_tarzi_sosyal: { weightedSum: 0, totalWeight: 0 },
-    evlilik_ekonomi: { weightedSum: 0, totalWeight: 0 },
-    kriz_iletisim: { weightedSum: 0, totalWeight: 0 },
-    aile_gelecek: { weightedSum: 0, totalWeight: 0 },
+    maddi_dinamikler: { weightedSum: 0, totalWeight: 0 },
+    iletisim_sinirlar: { weightedSum: 0, totalWeight: 0 },
+    gelecek_vizyonu: { weightedSum: 0, totalWeight: 0 },
   };
 
   const sharedStrengths: string[] = [];
@@ -61,27 +137,27 @@ export function analyzeCompatibility(
 
     if (userOpt.id === candOpt.id) {
       questionScore = 100;
-      sharedStrengths.push(`${question.categoryLabel}: "${userOpt.label.split(';')[0]}" yaklaşımınız birebir örtüşüyor.`);
+      sharedStrengths.push(`${question.categoryLabel}: "${userOpt.shortTag}" çizgisinde tam frekans uyumu.`);
     } else if (userOpt.compatibleWith.includes(candOpt.id)) {
       questionScore = 92;
-      sharedStrengths.push(`${question.categoryLabel} başlığında yüksek tamamlayıcı uyum mevcut.`);
+      sharedStrengths.push(`${question.categoryLabel} başlığında birbirini tamamlayan yaklaşım.`);
     } else if (userOpt.partialCompatibleWith.includes(candOpt.id)) {
       const vecSim = vectorSimilarity(userOpt.weightVector, candOpt.weightVector);
-      questionScore = Math.round(58 + vecSim * 22); // 58 - 80 bandı
+      questionScore = Math.round(58 + vecSim * 22);
       talkingPoints.push(
-        `${question.categoryLabel}: Sen "${userOpt.label.split(';')[0]}" derken aday "${candOpt.label.split(';')[0]}" çizgisinde.`
+        `${question.categoryLabel}: Sen "${userOpt.shortTag}" derken o "${candOpt.shortTag}" noktasında.`
       );
     } else {
       const vecSim = vectorSimilarity(userOpt.weightVector, candOpt.weightVector);
-      questionScore = Math.round(vecSim * 42); // Keskin ayrışma (0 - 42 bandı)
+      questionScore = Math.round(vecSim * 42);
       if (isUserDealbreaker || isCandDealbreaker) {
         dealbreakerViolations += 1;
         hardConflicts.push(
-          `${question.categoryLabel} (Kırmızı Çizgi): "${userOpt.label.split(';')[0]}" ile "${candOpt.label.split(';')[0]}" arasında temel zıtlık var.`
+          `${question.categoryLabel} (Kırmızı Çizgi): "${userOpt.shortTag}" ile "${candOpt.shortTag}" arasında keskin fark var.`
         );
       } else {
         talkingPoints.push(
-          `${question.categoryLabel} konusunda beklentileriniz farklı; tanışma aşamasında mutlaka netleştirilmeli.`
+          `${question.categoryLabel} konusunda bakış açılarınız farklı; ilk kahvede konuşmaya değer.`
         );
       }
     }
@@ -95,7 +171,6 @@ export function analyzeCompatibility(
 
   let rawOverall = totalWeight > 0 ? totalWeightedScore / totalWeight : 50;
 
-  // Zorlaştırılmış puanlama cezası: Kırmızı çizgi ihlali varsa puanı sert düşür
   if (dealbreakerViolations === 1) {
     rawOverall = Math.min(rawOverall - 14, 74);
   } else if (dealbreakerViolations >= 2) {
@@ -122,30 +197,32 @@ export function analyzeCompatibility(
   let verdictAdvice: string;
 
   if (overallScore >= 90) {
-    tier = 'nikah_masasi';
-    verdictBadge = `%${overallScore} Uyum — Doğrudan Evlilik / Nikâh Adayı`;
-    verdictHeadline = `Yüzde ${overallScore} uyumlu: Bence sevgili olabilir, doğrudan nikâh masasına oturabilirsiniz.`;
+    tier = 'yuksek_kimya';
+    verdictBadge = `%${overallScore} Frekans — Kusursuz Kimya`;
+    verdictHeadline = `Yüzde ${overallScore} uyumlu: Bence hiç vakit kaybetmeyin, direkt sevgili olabilirsiniz!`;
     verdictAdvice =
-      'İnanç pratiği, toplumsal duruş, aile sınırları ve kriz yönetimi eksenlerinizde nadir görülen bir örtüşme var. Kırmızı çizgileriniz birbirini koruyor.';
+      'Hayata bakışınız, mizah/sosyal ritminiz ve kırmızı çizgileriniz nadir görülen bir uyumda. İlk buluşmada saatlerin nasıl geçtiğini anlamazsınız.';
   } else if (overallScore >= 80) {
-    tier = 'nisanlanabilir';
-    verdictBadge = `%${overallScore} Uyum — Yüksek Ciddi İlişki & Nişan Uyumu`;
-    verdictHeadline = `Yüzde ${overallScore} uyumlu: Bence nişanlanabilirsiniz, sağlam bir temeliniz var.`;
+    tier = 'ciddi_uyum';
+    verdictBadge = `%${overallScore} Frekans — Güçlü İlişki Potansiyeli`;
+    verdictHeadline = `Yüzde ${overallScore} uyumlu: Bence çok sağlam bir ilişki çıkar, uzun vadede çok iyi anlaşırsınız.`;
     verdictAdvice =
-      'Hayata bakışınızın ana omurgası uyumlu. Detaylardaki birkaç küçük yaklaşım farkı, karşılıklı saygıyla kolayca ortak bir ev düzenine dönüşebilir.';
+      'Ana değer omurganız birebir örtüşüyor. Küçük yaşam tarzı nüansları ise ilişkinize dinamizm ve sohbet zenginliği katacak düzeyde.';
   } else if (overallScore >= 60) {
     tier = 'sans_denenebilir';
-    verdictBadge = `%${overallScore} Uyum — Koşullu Uyum / Şans Denenebilir`;
-    verdictHeadline = `Yüzde ${overallScore} uyumlu: Bence şansınızı deneyebilirsiniz ama konuşmanız gereken başlıklar var.`;
+    verdictBadge = `%${overallScore} Frekans — Şans Denenebilir`;
+    verdictHeadline = `Yüzde ${overallScore} uyumlu: Bence bir kahve içip şansınızı kesinlikle deneyebilirsiniz.`;
     verdictAdvice =
-      'Ortak değerleriniz azımsanmayacak düzeyde; ancak aşağıda listelenen farklılık başlıklarını ilk görüşmelerde açıkça masaya yatırmanız gerekir.';
+      'Ortak paydalarınız güçlü; farklı düşündüğünüz 1-2 başlık ise birbirinize yeni pencereler açabilir. Ön yargısız bir tanışmaya değer.';
   } else {
     tier = 'dusuk_uyum';
-    verdictBadge = `%${overallScore} Uyum — Kırmızı Çizgi / Düşük Uyum`;
-    verdictHeadline = `Yüzde ${overallScore} uyumlu: Temel beklentilerde keskin ayrışma mevcut.`;
+    verdictBadge = `%${overallScore} Frekans — Farklı Dünyalar`;
+    verdictHeadline = `Yüzde ${overallScore} uyumlu: Sosyal ritim ve temel sınırlarda farklı dünyalardasınız.`;
     verdictAdvice =
-      'Evlilik içi roller, dünya görüşü veya yaşam tarzı sınırlarında yıpratıcı olabilecek temel farklılıklar tespit edildi.';
+      'Yaşam tarzı ve öncelik sıralamanızda belirgin zıtlıklar var; yine de zıt kutupların çekimine inanıyorsanız profili inceleyebilirsiniz.';
   }
+
+  const icebreakerSuggestion = `"Selam! İkimizin de ortak frekansı %${overallScore} çıkmış. Özellikle '${candidate.favoriteVibe.split(',')[0]}' detayını görünce yazmak istedim, senin için ideal bir hafta sonu nasıl geçer?"`;
 
   return {
     candidate,
@@ -154,6 +231,7 @@ export function analyzeCompatibility(
     verdictBadge,
     verdictHeadline,
     verdictAdvice,
+    icebreakerSuggestion,
     categoryScores,
     sharedStrengths: sharedStrengths.slice(0, 4),
     talkingPoints: talkingPoints.slice(0, 3),

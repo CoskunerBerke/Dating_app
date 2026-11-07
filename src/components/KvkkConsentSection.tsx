@@ -101,10 +101,10 @@ export const KvkkConsentSection: React.FC<KvkkConsentSectionProps> = ({
 
         <div className="h-64 overflow-y-auto pr-4 text-xs text-zinc-700 space-y-4 leading-relaxed border-b border-zinc-200 pb-6">
           <p>
-            <strong>1. VERİ SORUMLUSU VE AMAÇ:</strong> İşbu Aydınlatma Metni ve Açık Rıza Sözleşmesi, 6698 sayılı Kişisel Verilerin Korunması Kanunu (“KVKK”) uyarınca, evlilik ve ciddi ilişki amacıyla oluşturulan Mizan Uyum Havuzu platformuna katılan adayların kişisel verilerinin işlenme şartlarını düzenler.
+            <strong>1. VERİ SORUMLUSU VE AMAÇ:</strong> İşbu Aydınlatma Metni ve Açık Rıza Sözleşmesi, 6698 sayılı Kişisel Verilerin Korunması Kanunu (“KVKK”) uyarınca, tanışma ve sosyal uyum analizi amacıyla oluşturulan Mizan Frekans ve Karakter Ağı platformuna katılan adayların kişisel verilerinin işlenme şartlarını düzenler.
           </p>
           <p>
-            <strong>2. ÖZEL NİTELİKLİ KİŞİSEL VERİLERİN İŞLENMESİ (KVKK MADDE 6):</strong> Platformun temel çalışma mantığı, adaylar arasında evlilikte kritik öneme sahip olan dünya görüşü, dini inanç ve ibadet pratiği, yaşam tarzı, toplumsal değerler (Cumhuriyet/Atatürkçülük hassasiyeti, muhafazakârlık düzeyi, giyim/tesettür tercihi) ve güvenlik doğrulaması (Adli Sicil/Sabıka Kaydı durumu) üzerinden matematiksel uyum analizi yapmaktır. Bu veriler KVKK Madde 6 kapsamında “Özel Nitelikli Kişisel Veri” niteliğindedir ve yalnızca sizin özgür iradenizle vereceğiniz <strong>açık rıza</strong> doğrultusunda, sadece eşleşme puanı hesaplamak amacıyla işlenir.
+            <strong>2. ÖZEL NİTELİKLİ KİŞİSEL VERİLERİN İŞLENMESİ (KVKK MADDE 6):</strong> Platformun temel çalışma mantığı, adaylar arasında sosyal ilişkilerde kritik öneme sahip olan dünya görüşü, inanç pratiği, yaşam tarzı, toplumsal değerler (Cumhuriyet/Atatürkçülük hassasiyeti, muhafazakârlık düzeyi, giyim/stil tercihi) ve güvenlik doğrulaması (Adli Sicil/Sabıka Kaydı durumu) üzerinden matematiksel uyum analizi yapmaktır. Bu veriler KVKK Madde 6 kapsamında “Özel Nitelikli Kişisel Veri” niteliğindedir ve yalnızca sizin özgür iradenizle vereceğiniz <strong>açık rıza</strong> doğrultusunda, sadece eşleşme puanı hesaplamak amacıyla işlenir.
           </p>
           <p>
             <strong>3. E-DEVLET ADLİ SİCİL BELGESİ İŞLEME VE İMHA PROTOKOLÜ:</strong> Adayların güvenliğini sağlamak amacıyla talep edilen barkodlu e-Devlet Adli Sicil Kaydı PDF belgesi, sistemimizde dosya olarak <strong>saklanmaz</strong>. Yüklediğiniz PDF belgesi anlık olarak geçici bellekte (RAM) okunur; belgede “ADLİ SİCİL KAYDI YOKTUR” ve “ADLİ SİCİL ARŞİV KAYDI YOKTUR” ibarelerinin varlığı ile barkod formatı kontrol edilir. Analiz tamamlandığı saniyede PDF belgesi ve içindeki T.C. Kimlik Numarası bellekten kalıcı olarak silinir. Veritabanına yalnızca <code>adli_sicil_temiz: true/false</code> durumu, doğrulama tarihi ve tek yönlü kriptografik özet (SHA-256 hash) kaydedilir.
@@ -152,7 +152,7 @@ export const KvkkConsentSection: React.FC<KvkkConsentSectionProps> = ({
               className="mt-1 w-4 h-4 accent-zinc-900 shrink-0"
             />
             <span className="text-xs text-zinc-800 leading-relaxed">
-              <strong>Özel Nitelikli Veri Açık Rızası (KVKK m.6):</strong> Anket kapsamında kendi isteğimle yanıtlayacağım <em>dini inanç, ibadet pratiği, felsefi/siyasi görüş (Atatürkçülük, muhafazakârlık, yaşam tarzı) ve kılık-kıyafet</em> tercihlerimin, kimliğimden ayrıştırılarak yalnızca evlilik uyum yüzdesi hesaplamak amacıyla işlenmesine <strong>açık rıza veriyorum</strong>.
+              <strong>Özel Nitelikli Veri Açık Rızası (KVKK m.6):</strong> Test kapsamında kendi isteğimle yanıtlayacağım <em>inanç, felsefi/siyasi görüş (Atatürkçülük, muhafazakârlık, yaşam tarzı) ve giyim/stil</em> tercihlerimin, kimliğimden ayrıştırılarak yalnızca frekans uyum yüzdesi hesaplamak amacıyla işlenmesine <strong>açık rıza veriyorum</strong>.
             </span>
           </label>
 
