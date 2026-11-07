@@ -34,13 +34,19 @@ CREATE TABLE IF NOT EXISTS kvkk_acik_riza_kayitlari (
 CREATE TABLE IF NOT EXISTS kullanici_profilleri (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     alias_code VARCHAR(32) UNIQUE NOT NULL,             -- Örn: ADAY #TR-8941
+    first_name VARCHAR(40) NOT NULL,                    -- Örn: Can, Zeynep
     gender VARCHAR(10) NOT NULL CHECK (gender IN ('erkek', 'kadin')),
     looking_for VARCHAR(10) NOT NULL CHECK (looking_for IN ('erkek', 'kadin')),
     age SMALLINT NOT NULL CHECK (age >= 18 AND age <= 99),
+    height_cm SMALLINT NOT NULL CHECK (height_cm >= 140 AND height_cm <= 230),
+    body_type VARCHAR(40) NOT NULL DEFAULT 'Orta yapılı',
     city VARCHAR(64) NOT NULL,
     profession VARCHAR(120) NOT NULL,
+    persona_title VARCHAR(80) NOT NULL DEFAULT 'Özgür Yolcu',
     relationship_dynamic VARCHAR(120) NOT NULL,
     bio TEXT NOT NULL DEFAULT '',
+    character_traits TEXT[] NOT NULL DEFAULT '{}',
+    interests TEXT[] NOT NULL DEFAULT '{}',
     preferred_contact_platform VARCHAR(16) NOT NULL CHECK (preferred_contact_platform IN ('whatsapp', 'instagram', 'both')),
     -- İletişim bilgileri pgp_sym_encrypt (AES-256) ile şifrelenerek Türkiye sunucusunda saklanır
     encrypted_whatsapp BYTEA,

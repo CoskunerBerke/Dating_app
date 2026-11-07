@@ -22,16 +22,36 @@ export function App() {
 
   const [profile, setProfile] = useState<UserSelfProfile>({
     aliasCode: 'ADAY #TR-8941',
+    firstName: 'Can',
     gender: 'erkek',
     lookingFor: 'kadin',
-    age: 25,
-    city: 'İstanbul',
+    age: 24,
+    heightCm: 187,
+    bodyType: 'Orta yapılı',
+    city: 'İzmir',
     profession: 'Yazılım & Teknoloji',
+    personaTitle: 'Özgür Yolcu',
     relationshipDynamic: 'Uzun Vadeli & Ciddi İlişki',
     bio: 'Net kriterleri olan, samimi ve kafa dengi biriyle tanışmak isteyen biriyim.',
+    characterTraits: [
+      'Dinde esnek',
+      'Bağımsız',
+      'Açık sözlü',
+      'Sabırlı',
+      'Titiz ve bakımlı',
+      'Düzenli',
+      'Sakin mizaçlı',
+      'Anlayışlı',
+    ],
+    interests: [
+      'Film / dizi',
+      'Seyahat',
+      'Tarih / müze gezmek',
+      'Arkadaşlarla sohbet',
+    ],
     preferredContactPlatform: 'whatsapp',
     whatsappNumber: '+90 532 890 12 34',
-    instagramHandle: 'berke.mizan',
+    instagramHandle: 'can.mizan',
     contactPreferenceConfirmed: false,
   });
 
@@ -313,9 +333,9 @@ export function App() {
       (c) => c.gender === profile.lookingFor
     );
     return targetCandidates
-      .map((cand) => analyzeCompatibility(answers, cand))
+      .map((cand) => analyzeCompatibility(answers, cand, profile))
       .sort((a, b) => b.overallScore - a.overallScore);
-  }, [answers, profile.lookingFor]);
+  }, [answers, profile]);
 
   return (
     <div className="min-h-screen flex flex-col bg-[#FAF8F5] text-zinc-900 overflow-x-hidden">

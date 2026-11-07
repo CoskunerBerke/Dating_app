@@ -6,19 +6,35 @@ export type QuestionCategory =
   | 'sosyal_aliskanlik'
   | 'iliski_sinirlari';
 
-export interface ChipOption {
+export interface QuestionOption {
   id: string;
   label: string;
-  groupTag?: string;
+  groupTag?:
+    | 'islam_muhafazakar'
+    | 'islam_geleneksel'
+    | 'sekuler'
+    | 'diger_inanc'
+    | 'ataturkcu'
+    | 'milliyetci'
+    | 'muhafazakar'
+    | 'sol_sosyal'
+    | 'liberal'
+    | 'apolitik'
+    | 'dengeli';
 }
 
-export interface AdaptiveFollowUp {
+export interface FollowUpOption {
+  id: string;
+  label: string;
+}
+
+export interface FollowUpBlock {
   triggerOptionIds: string[];
   id: string;
   title: string;
-  subtitle?: string;
+  subtitle: string;
   mode: 'single_select' | 'red_exclusion_multi';
-  options: ChipOption[];
+  options: FollowUpOption[];
   allowCustomOther?: boolean;
   allowPreferNotToSay?: boolean;
 }
@@ -30,10 +46,10 @@ export interface QuestionItem {
   categoryLabel: string;
   prompt: string;
   helperText: string;
-  options: ChipOption[];
+  options: QuestionOption[];
   allowCustomOther: boolean;
   allowPreferNotToSay: boolean;
-  followUps: AdaptiveFollowUp[];
+  followUps: FollowUpBlock[];
 }
 
 export interface UserAnswer {
@@ -49,13 +65,19 @@ export type ContactPlatformChoice = 'whatsapp' | 'instagram' | 'both';
 
 export interface UserSelfProfile {
   aliasCode: string;
+  firstName: string; // Örn: "Can", "Berke", "Zeynep"
   gender: 'erkek' | 'kadin';
   lookingFor: 'kadin' | 'erkek';
   age: number;
+  heightCm: number; // Örn: 187
+  bodyType: string; // Örn: "Orta yapılı", "Atletik / Fit", "İnce yapılı"
   city: string;
   profession: string;
+  personaTitle: string; // Örn: "Özgür Yolcu"
   relationshipDynamic: string;
   bio: string;
+  characterTraits: string[]; // Örn: ["Dinde esnek", "Bağımsız", "Açık sözlü", "Sabırlı", "Titiz ve bakımlı", "Düzenli", "Sakin mizaçlı", "Anlayışlı"]
+  interests: string[]; // Örn: ["Film / dizi", "Seyahat", "Tarih / müze gezmek", "Arkadaşlarla sohbet"]
   preferredContactPlatform: ContactPlatformChoice;
   whatsappNumber: string;
   instagramHandle: string;
@@ -67,61 +89,65 @@ export interface KvkkConsentRecord {
   specialCategoryExplicitConsent: boolean;
   zeroRetentionPdfAccepted: boolean;
   trServerTransferAccepted: boolean;
-  consentTimestamp: string;
-  consentId: string;
+  consentTimestamp?: string;
+  consentId?: string;
 }
 
+export type CriminalRecordStatus =
+  | 'unverified'
+  | 'clean'
+  | 'has_record'
+  | 'invalid_document';
+
 export interface CriminalRecordAnalysis {
-  status: 'unverified' | 'clean' | 'has_record' | 'invalid_document';
-  fileName?: string;
-  fileSizeKB?: number;
-  barcodeNumber?: string; // Örn: ADB02889192793 (Karekodun altındaki resmi kod)
-  maskedBarcode?: string; // Örn: ADB02889****
-  documentSayi?: string;
-  documentDate?: string;
-  sorguTuru?: string;
-  kullanimAmaci?: string;
-  kimlikTuru?: string;
-  maskedTcNo?: string;
-  tcChecksumValid?: boolean;
-  maskedName?: string;
-  birthPlaceAndYear?: string;
-  institution?: string;
+  status: CriminalRecordStatus;
+  verificationTimestamp?: string;
+  documentHash?: string;
+  barcodeNumber?: string;
+  officialSorguSayisi?: string;
+  mernisVerified?: boolean;
+  birthPlaceAndDate?: string;
+  calculatedAge?: number;
+  institutionTarget?: string;
+  verificationMethod?: 'live_edevlet_barcode' | 'pdf_upload';
   adliSicilKaydiYoktur: boolean;
   arsivKaydiYoktur: boolean;
   hasActiveOrArchiveRecord: boolean;
-  extractedRecordDetails?: string; // Kayıt varsa otomatik profile yazdırılan mahkeme/suç satırı
-  profileAutoStamp: string; // Profile otomatik ve değiştirilemez şekilde basılan resmi ibare
-  liveEdevletStatus?: 'connected' | 'captcha_protected' | 'offline_verified';
-  verifiedAt?: string;
-  verificationHash?: string;
   rawPdfPurged: boolean;
   summaryTitle: string;
   summaryDetail: string;
+  profileAutoStamp: string;
+  extractedRecordDetails?: string;
   detectedClauses: string[];
 }
 
 export interface CandidateProfile {
   id: string;
   poolCode: string;
-  gender: 'erkek' | 'kadin';
+  firstName: string;
+  gender: 'kadin' | 'erkek';
   age: number;
+  heightCm: number;
+  bodyType: string;
   city: string;
   profession: string;
+  personaTitle: string;
   relationshipDynamic: string;
   shortIntro: string;
-  expectationsNote: string;
+  characterTraits: string[];
+  interests: string[];
   favoriteVibe: string;
   preferredContactPlatform: ContactPlatformChoice;
-  whatsappNumber?: string;
-  instagramHandle?: string;
+  whatsappNumber: string;
+  instagramHandle: string;
+  encryptedContactHandle: string;
   criminalRecord: {
     verified: boolean;
     clean: boolean;
+    verifiedAt: string;
     barcodeMasked: string;
-    verifiedDate: string;
     profileAutoStamp: string;
-    recordSummary?: string; // Eğer adli sicil kaydı varsa karşı tarafın onaylaması gereken otomatik kayıt metni
+    recordSummary?: string;
   };
   tags: {
     inanc: string;
@@ -130,20 +156,11 @@ export interface CandidateProfile {
     siyaset: string;
     takim: string;
     spor: string;
-    meslek: string;
     alkol: string;
     giyim: string;
-    muzik: string;
-    kiskanclik: string;
   };
   allTraitIds: string[];
   excludedTraitIds: string[];
-}
-
-export interface CategoryScoreBreakdown {
-  category: QuestionCategory;
-  label: string;
-  score: number;
 }
 
 export type MatchTier =
@@ -152,6 +169,12 @@ export type MatchTier =
   | 'sans_denenebilir'
   | 'dusuk_uyum';
 
+export interface CategoryScoreBreakdown {
+  category: QuestionCategory;
+  label: string;
+  score: number;
+}
+
 export interface MatchAnalysisResult {
   candidate: CandidateProfile;
   overallScore: number;
@@ -159,9 +182,14 @@ export interface MatchAnalysisResult {
   blockedReasons: string[];
   tier: MatchTier;
   verdictBadge: string;
+  topPercentileLabel: string; // Örn: "adaylarınız arasında ilk %2"
   verdictHeadline: string;
   verdictAdvice: string;
   firstMessageIdea: string;
+  commonInterests: string[];
+  matchedTopicsWithStar: string[];
+  differingTopicsWithStar: string[];
+  evaluatedTopicsCount: number;
   categoryScores: CategoryScoreBreakdown[];
   sharedStrengths: string[];
   talkingPoints: string[];

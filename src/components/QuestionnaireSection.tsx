@@ -1,33 +1,44 @@
 import React, { useState } from 'react';
-import { QUESTIONS } from '../data/questionsData';
 import {
-  AdaptiveFollowUp,
   ContactPlatformChoice,
+  FollowUpBlock,
   UserAnswer,
   UserSelfProfile,
 } from '../types/domain';
+import { QUESTIONS } from '../data/questionsData';
+import {
+  AVAILABLE_BODY_TYPES,
+  AVAILABLE_CHARACTER_TRAITS,
+  AVAILABLE_INTERESTS,
+} from '../data/candidatesPool';
+import {
+  ArrowLeft,
+  ArrowRight,
+  Check,
+  AlertCircle,
+  Sparkles,
+  UserCheck,
+  PlusCircle,
+  EyeOff,
+  Phone,
+  Instagram,
+  ShieldCheck,
+} from 'lucide-react';
 import {
   isValidInstagramHandle,
   isValidTurkishMobile,
   sanitizeInstagramHandle,
   sanitizeUserText,
 } from '../utils/security';
-import {
-  Check,
-  AlertCircle,
-  ArrowRight,
-  ArrowLeft,
-  Sliders,
-  Lock,
-  MessageCircle,
-} from 'lucide-react';
 
 interface QuestionnaireSectionProps {
   profile: UserSelfProfile;
-  onUpdateProfile: (profile: UserSelfProfile) => void;
+  onUpdateProfile: (updated: UserSelfProfile) => void;
   answers: Record<string, UserAnswer>;
   onUpdateAnswer: (questionId: string, updated: UserAnswer) => void;
-  onApplyPresetPersona: (persona: 'muhafazakar' | 'sentez' | 'ataturkcu_sekuler') => void;
+  onApplyPresetPersona: (
+    persona: 'muhafazakar' | 'sentez' | 'ataturkcu_sekuler'
+  ) => void;
   kvkkApproved: boolean;
   onRequestKvkkModal: () => void;
   onFinishQuestionnaire: () => void;
@@ -43,19 +54,11 @@ export const QuestionnaireSection: React.FC<QuestionnaireSectionProps> = ({
   onRequestKvkkModal,
   onFinishQuestionnaire,
 }) => {
-  // 0..9 arası normal sorular, 10 ise son adım: "WhatsApp mı Instagram mı?" iletişim tercihi
-  const FINAL_CONTACT_STEP_INDEX = QUESTIONS.length;
-  const TOTAL_STEPS = QUESTIONS.length + 1;
-
   const [currentIndex, setCurrentIndex] = useState(0);
-  const [transitionDir, setTransitionDir] = useState<'next' | 'prev'>('next');
-  const [animKey, setAnimKey] = useState(0);
-  const [validationWarning, setValidationWarning] = useState<string | null>(null);
-  const [showProfileEditor, setShowProfileEditor] = useState(false);
+  const [showProfileEditor, setShowProfileEditor] = useState(true);
+  const [validationError, setValidationError] = useState<string | null>(null);
 
-  const isOnFinalContactStep = currentIndex === FINAL_CONTACT_STEP_INDEX;
-  const currentQuestion = !isOnFinalContactStep ? QUESTIONS[currentIndex] : QUESTIONS[0];
-
+  const currentQuestion = QUESTIONS[currentIndex];
   const currentAnswer: UserAnswer = answers[currentQuestion.id] || {
     questionId: currentQuestion.id,
     selectedOptionId: '',
@@ -65,30 +68,44 @@ export const QuestionnaireSection: React.FC<QuestionnaireSectionProps> = ({
     excludedRedIds: [],
   };
 
-  const activeFollowUps: AdaptiveFollowUp[] = !isOnFinalContactStep
-    ? currentQuestion.followUps.filter((f) => {
-        if (!currentAnswer.selectedOptionId) return false;
-        if (f.triggerOptionIds.includes('*')) return true;
-        return f.triggerOptionIds.includes(currentAnswer.selectedOptionId);
-      })
-    : [];
-
-  const isQuestionStepComplete = (qIndex: number): boolean => {
-    const q = QUESTIONS[qIndex];
-    if (!q) return false;
-    const ans = answers[q.id];
-    if (!ans || !ans.selectedOptionId) return false;
-    if (ans.selectedOptionId === 'other_custom' && !ans.customOtherText?.trim()) {
+  const completedCount = QUESTIONS.filter((q) => {
+    const a = answers[q.id];
+    if (!a || !a.selectedOptionId) return false;
+    if (a.selectedOptionId === 'other_custom' && !a.customOtherText?.trim()) {
       return false;
     }
-    const triggered = q.followUps.filter(
-      (f) => f.triggerOptionIds.includes('*') || f.triggerOptionIds.includes(ans.selectedOptionId)
+    return true;
+  }).length;
+
+  const progressPercent = Math.round((completedCount / QUESTIONS.length) * 100);
+
+  const activeFollowUps = currentQuestion.followUps.filter((f) => {
+    if (!currentAnswer.selectedOptionId) return false;
+    if (currentAnswer.selectedOptionId === 'prefer_not_to_say') {
+      return f.mode === 'red_exclusion_multi';
+    }
+    return (
+      f.triggerOptionIds.includes('*') ||
+      f.triggerOptionIds.includes(currentAnswer.selectedOptionId)
     );
-    for (const f of triggered) {
+  });
+
+  const isCurrentQuestionValid = (): boolean => {
+    if (!currentAnswer.selectedOptionId) return false;
+    if (
+      currentAnswer.selectedOptionId === 'other_custom' &&
+      !currentAnswer.customOtherText?.trim()
+    ) {
+      return false;
+    }
+    for (const f of activeFollowUps) {
       if (f.mode === 'single_select') {
-        const subAns = ans.followUpSingleAnswers?.[f.id];
-        if (!subAns) return false;
-        if (subAns === 'other_custom' && !ans.followUpCustomTexts?.[f.id]?.trim()) {
+        const subSelected = currentAnswer.followUpSingleAnswers[f.id];
+        if (!subSelected) return false;
+        if (
+          subSelected === 'other_custom' &&
+          !currentAnswer.followUpCustomTexts[f.id]?.trim()
+        ) {
           return false;
         }
       }
@@ -96,807 +113,927 @@ export const QuestionnaireSection: React.FC<QuestionnaireSectionProps> = ({
     return true;
   };
 
-  const isFinalContactStepValid = (): boolean => {
-    const plat = profile.preferredContactPlatform;
-    if (plat === 'whatsapp') {
-      return isValidTurkishMobile(profile.whatsappNumber);
+  const isContactPreferenceStepValid = (): boolean => {
+    if (!profile.contactPreferenceConfirmed) return false;
+    if (
+      profile.preferredContactPlatform === 'whatsapp' ||
+      profile.preferredContactPlatform === 'both'
+    ) {
+      if (!isValidTurkishMobile(profile.whatsappNumber)) return false;
     }
-    if (plat === 'instagram') {
-      return isValidInstagramHandle(profile.instagramHandle);
+    if (
+      profile.preferredContactPlatform === 'instagram' ||
+      profile.preferredContactPlatform === 'both'
+    ) {
+      if (!isValidInstagramHandle(profile.instagramHandle)) return false;
     }
-    if (plat === 'both') {
-      return (
-        isValidTurkishMobile(profile.whatsappNumber) &&
-        isValidInstagramHandle(profile.instagramHandle)
-      );
-    }
-    return false;
+    return true;
   };
 
-  const isCurrentStepComplete = isOnFinalContactStep
-    ? isFinalContactStepValid()
-    : isQuestionStepComplete(currentIndex);
+  const handleToggleCharacterTrait = (trait: string) => {
+    const exists = profile.characterTraits.includes(trait);
+    const updatedTraits = exists
+      ? profile.characterTraits.filter((t) => t !== trait)
+      : [...profile.characterTraits, trait];
+    onUpdateProfile({
+      ...profile,
+      characterTraits: updatedTraits,
+    });
+  };
 
-  const completedQuestionsCount =
-    QUESTIONS.filter((_, idx) => isQuestionStepComplete(idx)).length +
-    (profile.contactPreferenceConfirmed && isFinalContactStepValid() ? 1 : 0);
-
-  const progressPercent = Math.round((completedQuestionsCount / TOTAL_STEPS) * 100);
-
-  const goToStep = (targetIdx: number) => {
-    if (targetIdx === currentIndex) return;
-    if (targetIdx > currentIndex && !isCurrentStepComplete) {
-      setValidationWarning(
-        'Diğer adıma geçmeden önce lütfen bu soruyu cevapla (veya "Bahsetmek İstemiyorum" seçeneğini işaretle).'
-      );
-      return;
-    }
-    setValidationWarning(null);
-    setTransitionDir(targetIdx > currentIndex ? 'next' : 'prev');
-    setAnimKey((prev) => prev + 1);
-    setCurrentIndex(targetIdx);
+  const handleToggleInterest = (interest: string) => {
+    const exists = profile.interests.includes(interest);
+    const updatedInterests = exists
+      ? profile.interests.filter((i) => i !== interest)
+      : [...profile.interests, interest];
+    onUpdateProfile({
+      ...profile,
+      interests: updatedInterests,
+    });
   };
 
   const handleSelectMainOption = (optionId: string) => {
-    setValidationWarning(null);
-    const updated: UserAnswer = {
+    setValidationError(null);
+    onUpdateAnswer(currentQuestion.id, {
       ...currentAnswer,
       selectedOptionId: optionId,
-    };
-    onUpdateAnswer(currentQuestion.id, updated);
-
-    const triggeredFollowUps = currentQuestion.followUps.filter(
-      (f) => f.triggerOptionIds.includes('*') || f.triggerOptionIds.includes(optionId)
-    );
-
-    if (triggeredFollowUps.length === 0 && optionId !== 'other_custom') {
-      setTimeout(() => {
-        setTransitionDir('next');
-        setAnimKey((prev) => prev + 1);
-        setCurrentIndex((prev) => Math.min(FINAL_CONTACT_STEP_INDEX, prev + 1));
-      }, 280);
-    }
+    });
   };
 
   const handleSelectFollowUpSingle = (followUpId: string, optionId: string) => {
-    setValidationWarning(null);
-    const nextSingleAnswers = {
-      ...currentAnswer.followUpSingleAnswers,
-      [followUpId]: optionId,
-    };
-    const updated: UserAnswer = {
+    setValidationError(null);
+    onUpdateAnswer(currentQuestion.id, {
       ...currentAnswer,
-      followUpSingleAnswers: nextSingleAnswers,
-    };
-    onUpdateAnswer(currentQuestion.id, updated);
-
-    const hasRedMulti = activeFollowUps.some((f) => f.mode === 'red_exclusion_multi');
-    const allSinglesDone = activeFollowUps
-      .filter((f) => f.mode === 'single_select')
-      .every((f) => {
-        const val = nextSingleAnswers[f.id];
-        return Boolean(val) && val !== 'other_custom';
-      });
-
-    if (!hasRedMulti && allSinglesDone && optionId !== 'other_custom') {
-      setTimeout(() => {
-        setTransitionDir('next');
-        setAnimKey((prev) => prev + 1);
-        setCurrentIndex((prev) => Math.min(FINAL_CONTACT_STEP_INDEX, prev + 1));
-      }, 300);
-    }
+      followUpSingleAnswers: {
+        ...currentAnswer.followUpSingleAnswers,
+        [followUpId]: optionId,
+      },
+    });
   };
 
   const handleToggleRedExclusion = (optionId: string) => {
     const exists = currentAnswer.excludedRedIds.includes(optionId);
-    const nextRed = exists
+    const updatedRed = exists
       ? currentAnswer.excludedRedIds.filter((id) => id !== optionId)
       : [...currentAnswer.excludedRedIds, optionId];
 
     onUpdateAnswer(currentQuestion.id, {
       ...currentAnswer,
-      excludedRedIds: nextRed,
+      excludedRedIds: updatedRed,
     });
   };
 
-  const handleNextOrFinish = () => {
-    if (!isCurrentStepComplete) {
-      if (isOnFinalContactStep) {
-        setValidationWarning(
-          'Lütfen tercih ettiğin iletişim kanalını (WhatsApp telefon numarası veya Instagram kullanıcı adı) doğru formatta gir.'
-        );
-      } else {
-        setValidationWarning(
-          'Lütfen devam etmeden önce soruyu cevapla (listede yoksa "Diğer" veya "Bahsetmek İstemiyorum" seçebilirsin).'
-        );
-      }
+  const handleSelectContactPlatform = (platform: ContactPlatformChoice) => {
+    setValidationError(null);
+    onUpdateProfile({
+      ...profile,
+      preferredContactPlatform: platform,
+      contactPreferenceConfirmed: true,
+    });
+  };
+
+  const handleGoNext = () => {
+    if (!isCurrentQuestionValid()) {
+      setValidationError(
+        'Diğer soruya geçebilmek için lütfen kendini tanıtan bir seçenek işaretle (veya "Bahsetmek İstemiyorum" seç).'
+      );
       return;
     }
-
-    setValidationWarning(null);
-    if (!isOnFinalContactStep) {
-      goToStep(currentIndex + 1);
+    setValidationError(null);
+    if (currentIndex < QUESTIONS.length - 1) {
+      setCurrentIndex((prev) => prev + 1);
+      window.scrollTo({ top: 160, behavior: 'smooth' });
     } else {
-      onUpdateProfile({
-        ...profile,
-        contactPreferenceConfirmed: true,
-      });
+      if (!isContactPreferenceStepValid()) {
+        setValidationError(
+          'Eşleşmeleri görmek için lütfen en alttaki "WhatsApp üzerinden mi yoksa Instagram üzerinden mi iletişime geçilsin?" sorusunu yanıtla ve geçerli iletişim bilgini gir.'
+        );
+        return;
+      }
       onFinishQuestionnaire();
     }
   };
 
+  const handleGoPrev = () => {
+    setValidationError(null);
+    if (currentIndex > 0) {
+      setCurrentIndex((prev) => prev - 1);
+      window.scrollTo({ top: 160, behavior: 'smooth' });
+    }
+  };
+
   return (
-    <section className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-10 animate-section-enter">
-      {/* Üst Başlık ve Hızlı Test Doldurma */}
-      <div className="border-b border-zinc-300 pb-6 mb-8 flex flex-col lg:flex-row lg:items-end justify-between gap-4">
-        <div className="min-w-0">
-          <span className="font-mono text-xs uppercase tracking-widest text-zinc-500 block mb-2">
-            ADIM ADIM KENDİNİ TANIT & KIRMIZI ÇİZGİLERİNİ SEÇ
-          </span>
-          <h1 className="font-serif text-2xl sm:text-4xl font-semibold text-zinc-900 break-words">
-            Seni Tanıyalım ve En Uygun Kişilerle Eşleştirelim
-          </h1>
-        </div>
-
-        {/* Hızlı Test Profilleri */}
-        <div className="flex flex-wrap items-center gap-2">
-          <span className="font-mono text-[11px] text-zinc-500 mr-1">Demo Hızlı Doldur:</span>
-          <button
-            type="button"
-            onClick={() => {
-              onApplyPresetPersona('muhafazakar');
-              setAnimKey((k) => k + 1);
-            }}
-            className="px-3 py-2 rounded-lg border border-zinc-300 bg-white hover:border-zinc-900 text-xs font-medium text-zinc-800 transition-all"
-          >
-            Muhafazakâr Profil
-          </button>
-          <button
-            type="button"
-            onClick={() => {
-              onApplyPresetPersona('sentez');
-              setAnimKey((k) => k + 1);
-            }}
-            className="px-3 py-2 rounded-lg border border-zinc-300 bg-white hover:border-zinc-900 text-xs font-medium text-zinc-800 transition-all"
-          >
-            Dengeli / Milliyetçi
-          </button>
-          <button
-            type="button"
-            onClick={() => {
-              onApplyPresetPersona('ataturkcu_sekuler');
-              setAnimKey((k) => k + 1);
-            }}
-            className="px-3 py-2 rounded-lg border border-zinc-300 bg-white hover:border-zinc-900 text-xs font-medium text-zinc-800 transition-all"
-          >
-            Atatürkçü / Seküler
-          </button>
-        </div>
-      </div>
-
+    <section className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-10 animate-section-enter">
       {/* KVKK Uyarısı */}
       {!kvkkApproved && (
-        <div className="mb-6 p-4 rounded-xl border border-amber-300 bg-amber-50/90 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div className="mb-6 p-4 border border-amber-300 bg-amber-50 rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div className="flex items-start gap-3">
             <AlertCircle className="w-5 h-5 text-amber-800 shrink-0 mt-0.5" />
-            <p className="text-xs text-amber-950 leading-relaxed">
-              <strong>KVKK Sözleşmesi:</strong> Verdiğin yanıtların Türkiye’deki güvenli sunucumuzda saklanabilmesi için sözleşmeyi onaylaman gerekmektedir.
-            </p>
+            <div className="text-xs text-amber-950 leading-relaxed">
+              <strong className="font-semibold block">
+                KVKK Açık Rıza Sözleşmesi Onayı
+              </strong>
+              Seçtiğin bilgilerin Türkiye sunucumuzda güvenle işlenebilmesi için KVKK sözleşmesini onaylaman gerekmektedir.
+            </div>
           </div>
           <button
             type="button"
             onClick={onRequestKvkkModal}
-            className="px-4 py-2.5 rounded-lg bg-zinc-900 text-white text-xs font-medium shrink-0 whitespace-nowrap"
+            className="px-4 py-2 bg-zinc-900 text-white text-xs font-mono uppercase tracking-wider rounded-lg shrink-0 whitespace-nowrap"
           >
             Sözleşmeyi Onayla
           </button>
         </div>
       )}
 
-      {/* Kişisel Tanıtım Kartı */}
-      <div className="bg-white rounded-2xl border border-zinc-200 p-5 mb-8 shadow-sm">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-          <div className="flex flex-wrap items-center gap-x-6 gap-y-2 text-xs">
-            <div>
-              <span className="text-zinc-400 block text-[11px]">GİZLİ ADAY KODUN</span>
-              <span className="font-mono font-bold text-zinc-900">{profile.aliasCode}</span>
+      {/* Üst Başlık ve Hızlı Demo Doldurma */}
+      <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 mb-6">
+        <div>
+          <span className="font-mono text-xs uppercase tracking-widest text-zinc-500 block mb-1">
+            ADIM ADIM KENDİNİ TANIT VE KIRMIZI ÇİZGİLERİNİ SEÇ
+          </span>
+          <h1 className="font-serif text-2xl sm:text-3xl font-semibold text-zinc-900">
+            Kişisel Bilgilerin, Mizaç Özelliklerin ve Kriterlerin
+          </h1>
+        </div>
+
+        <div className="flex flex-wrap items-center gap-1.5">
+          <span className="text-[11px] text-zinc-500 mr-1 flex items-center gap-1">
+            <Sparkles className="w-3.5 h-3.5" />
+            Hızlı Demo Doldur:
+          </span>
+          <button
+            type="button"
+            onClick={() => onApplyPresetPersona('muhafazakar')}
+            className="px-2.5 py-1.5 text-xs rounded-lg border border-zinc-300 bg-white hover:border-zinc-900 transition-colors"
+          >
+            Muhafazakâr Profil
+          </button>
+          <button
+            type="button"
+            onClick={() => onApplyPresetPersona('sentez')}
+            className="px-2.5 py-1.5 text-xs rounded-lg border border-zinc-300 bg-white hover:border-zinc-900 transition-colors"
+          >
+            Dengeli / Milliyetçi
+          </button>
+          <button
+            type="button"
+            onClick={() => onApplyPresetPersona('ataturkcu_sekuler')}
+            className="px-2.5 py-1.5 text-xs rounded-lg border border-zinc-300 bg-white hover:border-zinc-900 transition-colors"
+          >
+            Atatürkçü / Seküler
+          </button>
+        </div>
+      </div>
+
+      {/* KİŞİSEL BİLGİLER, BOY, FİZİKSEL YAPI, MİZAÇ ETİKETLERİ VE İLGİ ALANLARI KARTI */}
+      <div className="bg-white rounded-3xl border border-zinc-200 p-5 sm:p-7 mb-6 shadow-sm">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-zinc-200">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-emerald-800 text-white flex items-center justify-center font-bold text-base shrink-0">
+              {profile.firstName ? profile.firstName[0].toUpperCase() : 'M'}
             </div>
             <div>
-              <span className="text-zinc-400 block text-[11px]">CİNSİYET / ARANAN</span>
-              <span className="font-semibold text-zinc-900">
-                {profile.gender === 'erkek' ? 'Erkek → Kadın Adaylar' : 'Kadın → Erkek Adaylar'}
-              </span>
-            </div>
-            <div>
-              <span className="text-zinc-400 block text-[11px]">YAŞ & ŞEHİR</span>
-              <span className="font-semibold text-zinc-900">
-                {profile.age} Yaş • {profile.city}
-              </span>
-            </div>
-            <div>
-              <span className="text-zinc-400 block text-[11px]">İLETİŞİM TERCİHİN</span>
-              <span className="font-semibold text-emerald-800">
-                {profile.preferredContactPlatform === 'whatsapp'
-                  ? 'WhatsApp Üzerinden'
-                  : profile.preferredContactPlatform === 'instagram'
-                  ? 'Instagram Üzerinden'
-                  : 'WhatsApp & Instagram'}
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="font-bold text-base text-zinc-900">
+                  {profile.firstName || 'İsminiz'}
+                </span>
+                <span className="text-xs text-zinc-500">
+                  {profile.age} yaş · {profile.heightCm} cm · {profile.bodyType} · {profile.city} · {profile.personaTitle}
+                </span>
+              </div>
+              <span className="text-[11px] text-emerald-800 font-medium block mt-0.5">
+                {profile.characterTraits.length} kişisel özellik · {profile.interests.length} ilgi alanı seçildi
               </span>
             </div>
           </div>
-
           <button
             type="button"
             onClick={() => setShowProfileEditor(!showProfileEditor)}
-            className="px-4 py-2.5 rounded-xl border border-zinc-300 hover:border-zinc-900 text-xs font-medium flex items-center gap-1.5 self-start sm:self-center shrink-0"
+            className="px-3.5 py-2 text-xs font-semibold rounded-xl border border-zinc-300 hover:border-zinc-900 text-zinc-800 shrink-0"
           >
-            <Sliders className="w-3.5 h-3.5" />
-            <span>{showProfileEditor ? 'Bilgileri Kapat' : 'Temel Bilgilerini Düzenle'}</span>
+            {showProfileEditor ? 'Kişisel Bilgileri Gizle' : 'Kişisel Bilgilerimi Düzenle'}
           </button>
         </div>
 
         {showProfileEditor && (
-          <div className="mt-5 pt-5 border-t border-zinc-200 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 text-xs">
-            <div>
-              <label className="block text-zinc-500 mb-1 font-medium">
-                Cinsiyetin ve Aday Tercihin
-              </label>
-              <select
-                value={profile.gender}
-                onChange={(e) => {
-                  const g = e.target.value as 'erkek' | 'kadin';
-                  onUpdateProfile({
-                    ...profile,
-                    gender: g,
-                    lookingFor: g === 'erkek' ? 'kadin' : 'erkek',
-                  });
-                }}
-                className="w-full p-2.5 rounded-lg border border-zinc-300 bg-[#FAF8F5]"
-              >
-                <option value="erkek">Erkek (Kadın Adaylarla Eşleş)</option>
-                <option value="kadin">Kadın (Erkek Adaylarla Eşleş)</option>
-              </select>
+          <div className="mt-6 space-y-6 animate-section-enter">
+            {/* 1. Satır: İsim, Yaş, Boy (cm), Fiziksel Yapı */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+              <div>
+                <label className="block text-[11px] font-semibold uppercase text-zinc-500 mb-1.5">
+                  Adın / Hitap İsmin
+                </label>
+                <input
+                  type="text"
+                  maxLength={30}
+                  value={profile.firstName}
+                  onChange={(e) =>
+                    onUpdateProfile({
+                      ...profile,
+                      firstName: sanitizeUserText(e.target.value, 30),
+                    })
+                  }
+                  placeholder="Örn: Can"
+                  className="w-full px-3.5 py-2.5 text-sm rounded-xl border border-zinc-300 bg-[#FAF8F5] font-medium"
+                />
+              </div>
+
+              <div>
+                <label className="block text-[11px] font-semibold uppercase text-zinc-500 mb-1.5">
+                  Yaşın
+                </label>
+                <input
+                  type="number"
+                  min={18}
+                  max={75}
+                  value={profile.age}
+                  onChange={(e) =>
+                    onUpdateProfile({
+                      ...profile,
+                      age: Math.max(18, Math.min(75, Number(e.target.value) || 24)),
+                    })
+                  }
+                  className="w-full px-3.5 py-2.5 text-sm rounded-xl border border-zinc-300 bg-[#FAF8F5] font-medium"
+                />
+              </div>
+
+              <div>
+                <label className="block text-[11px] font-semibold uppercase text-zinc-500 mb-1.5">
+                  Boyun (cm)
+                </label>
+                <input
+                  type="number"
+                  min={140}
+                  max={220}
+                  value={profile.heightCm}
+                  onChange={(e) =>
+                    onUpdateProfile({
+                      ...profile,
+                      heightCm: Math.max(140, Math.min(220, Number(e.target.value) || 175)),
+                    })
+                  }
+                  placeholder="Örn: 187"
+                  className="w-full px-3.5 py-2.5 text-sm rounded-xl border border-zinc-300 bg-[#FAF8F5] font-medium"
+                />
+              </div>
+
+              <div>
+                <label className="block text-[11px] font-semibold uppercase text-zinc-500 mb-1.5">
+                  Fiziksel Yapın
+                </label>
+                <select
+                  value={profile.bodyType}
+                  onChange={(e) =>
+                    onUpdateProfile({
+                      ...profile,
+                      bodyType: e.target.value,
+                    })
+                  }
+                  className="w-full px-3.5 py-2.5 text-sm rounded-xl border border-zinc-300 bg-[#FAF8F5] font-medium"
+                >
+                  {AVAILABLE_BODY_TYPES.map((bt) => (
+                    <option key={bt} value={bt}>
+                      {bt}
+                    </option>
+                  ))}
+                </select>
+              </div>
             </div>
 
-            <div>
-              <label className="block text-zinc-500 mb-1 font-medium">Yaşın</label>
-              <input
-                type="number"
-                min={18}
-                max={65}
-                value={profile.age}
-                onChange={(e) =>
-                  onUpdateProfile({
-                    ...profile,
-                    age: Math.min(65, Math.max(18, Number(e.target.value) || 25)),
-                  })
-                }
-                className="w-full p-2.5 rounded-lg border border-zinc-300 bg-[#FAF8F5]"
-              />
+            {/* 2. Satır: Cinsiyet Tercihi, Şehir, Meslek ve Kısa Başlık (Örn: Özgür Yolcu) */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+              <div>
+                <label className="block text-[11px] font-semibold uppercase text-zinc-500 mb-1.5">
+                  Cinsiyet & Aranan
+                </label>
+                <select
+                  value={profile.gender}
+                  onChange={(e) => {
+                    const g = e.target.value as 'erkek' | 'kadin';
+                    onUpdateProfile({
+                      ...profile,
+                      gender: g,
+                      lookingFor: g === 'erkek' ? 'kadin' : 'erkek',
+                    });
+                  }}
+                  className="w-full px-3.5 py-2.5 text-sm rounded-xl border border-zinc-300 bg-[#FAF8F5] font-medium"
+                >
+                  <option value="erkek">Erkek (Kadın Adaylarla Eşleş)</option>
+                  <option value="kadin">Kadın (Erkek Adaylarla Eşleş)</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-[11px] font-semibold uppercase text-zinc-500 mb-1.5">
+                  Yaşadığın Şehir
+                </label>
+                <input
+                  type="text"
+                  maxLength={40}
+                  value={profile.city}
+                  onChange={(e) =>
+                    onUpdateProfile({
+                      ...profile,
+                      city: sanitizeUserText(e.target.value, 40),
+                    })
+                  }
+                  placeholder="Örn: İzmir"
+                  className="w-full px-3.5 py-2.5 text-sm rounded-xl border border-zinc-300 bg-[#FAF8F5] font-medium"
+                />
+              </div>
+
+              <div>
+                <label className="block text-[11px] font-semibold uppercase text-zinc-500 mb-1.5">
+                  Mesleğin
+                </label>
+                <input
+                  type="text"
+                  maxLength={50}
+                  value={profile.profession}
+                  onChange={(e) =>
+                    onUpdateProfile({
+                      ...profile,
+                      profession: sanitizeUserText(e.target.value, 50),
+                    })
+                  }
+                  placeholder="Örn: Mimar / Yazılımcı"
+                  className="w-full px-3.5 py-2.5 text-sm rounded-xl border border-zinc-300 bg-[#FAF8F5] font-medium"
+                />
+              </div>
+
+              <div>
+                <label className="block text-[11px] font-semibold uppercase text-zinc-500 mb-1.5">
+                  Karakter Tanımın
+                </label>
+                <input
+                  type="text"
+                  maxLength={40}
+                  value={profile.personaTitle}
+                  onChange={(e) =>
+                    onUpdateProfile({
+                      ...profile,
+                      personaTitle: sanitizeUserText(e.target.value, 40),
+                    })
+                  }
+                  placeholder="Örn: Özgür Yolcu"
+                  className="w-full px-3.5 py-2.5 text-sm rounded-xl border border-zinc-300 bg-[#FAF8F5] font-medium"
+                />
+              </div>
             </div>
 
-            <div>
-              <label className="block text-zinc-500 mb-1 font-medium">Yaşadığın Şehir</label>
-              <input
-                type="text"
-                value={profile.city}
-                onChange={(e) =>
-                  onUpdateProfile({ ...profile, city: sanitizeUserText(e.target.value, 40) })
-                }
-                className="w-full p-2.5 rounded-lg border border-zinc-300 bg-[#FAF8F5]"
-              />
+            {/* 3. Satır: Kişisel Mizaç ve Karakter Özellikleri (Görseldeki Gri Etiketler) */}
+            <div className="pt-2 border-t border-zinc-200">
+              <div className="flex items-center justify-between mb-2">
+                <label className="text-xs font-semibold text-zinc-900">
+                  Seni Tanımlayan Kişisel Özellikler (Birden Fazla Seçebilirsin)
+                </label>
+                <span className="text-[11px] text-zinc-500">
+                  Profil kartında gri etiket olarak görünür
+                </span>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                {AVAILABLE_CHARACTER_TRAITS.map((trait) => {
+                  const selected = profile.characterTraits.includes(trait);
+                  return (
+                    <button
+                      key={trait}
+                      type="button"
+                      onClick={() => handleToggleCharacterTrait(trait)}
+                      className={`px-3 py-1.5 rounded-full text-xs font-medium transition-all ${
+                        selected
+                          ? 'bg-zinc-900 text-white shadow-sm'
+                          : 'bg-zinc-100 text-zinc-700 hover:bg-zinc-200'
+                      }`}
+                    >
+                      {trait}
+                    </button>
+                  );
+                })}
+              </div>
             </div>
 
-            <div>
-              <label className="block text-zinc-500 mb-1 font-medium">Kısa Tanıtım Cümlen</label>
-              <input
-                type="text"
-                value={profile.bio}
-                onChange={(e) =>
-                  onUpdateProfile({ ...profile, bio: sanitizeUserText(e.target.value, 160) })
-                }
-                className="w-full p-2.5 rounded-lg border border-zinc-300 bg-[#FAF8F5]"
-              />
+            {/* 4. Satır: İlgi Alanların (Görseldeki Yeşil "Ortak İlgi Alanlarınız" Etiketleri) */}
+            <div className="pt-2 border-t border-zinc-200">
+              <div className="flex items-center justify-between mb-2">
+                <label className="text-xs font-semibold text-zinc-900">
+                  İlgi Alanların ve Hobilerin (Ortak İlgi Alanlarını Yakalamak İçin Seç)
+                </label>
+                <span className="text-[11px] text-emerald-700 font-medium">
+                  Ortak olanlar yeşil etiketle öne çıkar
+                </span>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                {AVAILABLE_INTERESTS.map((interest) => {
+                  const selected = profile.interests.includes(interest);
+                  return (
+                    <button
+                      key={interest}
+                      type="button"
+                      onClick={() => handleToggleInterest(interest)}
+                      className={`px-3 py-1.5 rounded-full text-xs font-medium transition-all ${
+                        selected
+                          ? 'bg-emerald-700 text-white shadow-sm'
+                          : 'bg-emerald-50 text-emerald-900 border border-emerald-200 hover:bg-emerald-100'
+                      }`}
+                    >
+                      {interest}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Canlı Kart Önizlemesi (Kullanıcının Kendi Kartının Görseldeki Gibi Önizlemesi) */}
+            <div className="p-5 rounded-2xl bg-[#FAF8F5] border border-zinc-200">
+              <span className="block text-[10px] font-mono uppercase tracking-wider text-zinc-400 mb-2">
+                PROFİL KARTININ KARŞI TARAFA GÖRÜNÜMÜ (CANLI ÖNİZLEME)
+              </span>
+              <div className="flex items-start justify-between gap-4">
+                <div>
+                  <h4 className="text-xl font-bold text-zinc-900">
+                    {profile.firstName || 'Can'}
+                  </h4>
+                  <p className="text-xs text-zinc-600 mt-0.5">
+                    {profile.age} yaş · {profile.heightCm} cm · {profile.bodyType} · {profile.city} · {profile.personaTitle}
+                  </p>
+                </div>
+                <div className="text-right">
+                  <span className="text-2xl font-bold text-emerald-700">%91</span>
+                  <span className="block text-xs font-bold text-zinc-800">Çok yüksek uyum</span>
+                </div>
+              </div>
+              <div className="flex flex-wrap gap-1.5 mt-3">
+                {profile.characterTraits.map((t) => (
+                  <span
+                    key={t}
+                    className="px-2.5 py-1 rounded-full bg-zinc-200/80 text-zinc-800 text-[11px] font-medium"
+                  >
+                    {t}
+                  </span>
+                ))}
+              </div>
+              {profile.interests.length > 0 && (
+                <div className="mt-3">
+                  <span className="text-xs font-bold text-zinc-800 block mb-1.5">
+                    Seçtiğin ilgi alanları ({profile.interests.length})
+                  </span>
+                  <div className="flex flex-wrap gap-1.5">
+                    {profile.interests.map((item) => (
+                      <span
+                        key={item}
+                        className="px-2.5 py-1 rounded-full bg-emerald-100/80 text-emerald-900 text-[11px] font-medium"
+                      >
+                        {item}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         )}
       </div>
 
-      {/* Soru İlerleme Çubuğu ve Numaralar (01 - 11) */}
+      {/* İlerleme Çubuğu ve Numaralı Sekmeler */}
       <div className="mb-6">
-        <div className="flex flex-wrap items-center justify-between text-xs font-medium text-zinc-600 mb-2 gap-2">
+        <div className="flex items-center justify-between text-xs font-mono text-zinc-600 mb-2">
           <span>
-            {isOnFinalContactStep ? (
-              <>
-                Son Adım (11 / 11) —{' '}
-                <strong className="text-zinc-900">Karşılıklı İletişim Tercihi (WhatsApp / Instagram)</strong>
-              </>
-            ) : (
-              <>
-                Soru {currentQuestion.code} / {TOTAL_STEPS} —{' '}
-                <strong className="text-zinc-900">{currentQuestion.categoryLabel}</strong>
-              </>
-            )}
+            SORU {currentIndex + 1} / {QUESTIONS.length} •{' '}
+            <strong className="text-zinc-900">{currentQuestion.categoryLabel}</strong>
           </span>
-          <span>%{progressPercent} Tamamlandı</span>
+          <span>%{progressPercent} TAMAMLANDI</span>
         </div>
-
-        <div className="w-full h-2 rounded-full bg-zinc-200 mb-3 overflow-hidden">
+        <div className="w-full h-2 bg-zinc-200 rounded-full overflow-hidden mb-3">
           <div
-            className="h-full bg-zinc-900 transition-all duration-500 ease-out rounded-full"
+            className="h-full bg-zinc-900 transition-all duration-300"
             style={{ width: `${progressPercent}%` }}
           />
         </div>
 
-        <div className="grid grid-cols-6 sm:grid-cols-11 gap-1.5">
+        <div className="grid grid-cols-5 sm:grid-cols-10 gap-1.5">
           {QUESTIONS.map((q, idx) => {
-            const isAnswered = isQuestionStepComplete(idx);
-            const isCurrent = idx === currentIndex;
+            const ans = answers[q.id];
+            const isDone = Boolean(ans?.selectedOptionId);
+            const isActive = idx === currentIndex;
             return (
               <button
                 key={q.id}
                 type="button"
-                onClick={() => goToStep(idx)}
-                className={`py-2.5 rounded-xl font-mono text-xs border transition-all flex items-center justify-center gap-1 ${
-                  isCurrent
-                    ? 'border-zinc-900 bg-zinc-900 text-white font-bold shadow-sm'
-                    : isAnswered
-                    ? 'border-emerald-300 bg-emerald-50 text-emerald-900 font-semibold'
-                    : 'border-zinc-200 bg-white text-zinc-400'
+                onClick={() => {
+                  if (idx <= currentIndex || isDone) {
+                    setValidationError(null);
+                    setCurrentIndex(idx);
+                  }
+                }}
+                className={`py-1.5 rounded-lg text-xs font-mono border transition-all ${
+                  isActive
+                    ? 'border-zinc-900 bg-zinc-900 text-white font-bold'
+                    : isDone
+                    ? 'border-emerald-600 bg-emerald-50 text-emerald-900 font-semibold'
+                    : 'border-zinc-200 bg-white text-zinc-400 cursor-not-allowed'
                 }`}
               >
-                <span>{q.code}</span>
-                {isAnswered && !isCurrent && <Check className="w-3 h-3 text-emerald-700" />}
+                {q.code}
               </button>
             );
           })}
-
-          {/* 11. Son Adım Sekmesi: İletişim Kanalı Tercihi */}
-          <button
-            type="button"
-            onClick={() => goToStep(FINAL_CONTACT_STEP_INDEX)}
-            className={`py-2.5 rounded-xl font-mono text-xs border transition-all flex items-center justify-center gap-1 col-span-2 sm:col-span-1 ${
-              isOnFinalContactStep
-                ? 'border-zinc-900 bg-zinc-900 text-white font-bold shadow-sm'
-                : profile.contactPreferenceConfirmed && isFinalContactStepValid()
-                ? 'border-emerald-300 bg-emerald-50 text-emerald-900 font-semibold'
-                : 'border-zinc-200 bg-white text-zinc-400'
-            }`}
-          >
-            <span>11</span>
-            {profile.contactPreferenceConfirmed &&
-              isFinalContactStepValid() &&
-              !isOnFinalContactStep && <Check className="w-3 h-3 text-emerald-700" />}
-          </button>
         </div>
       </div>
 
-      {/* Zorunlu Cevaplama Uyarısı */}
-      {validationWarning && (
-        <div className="mb-5 p-4 rounded-xl bg-red-50 border border-red-300 text-red-900 text-xs font-medium flex items-center gap-2.5 animate-card-pop">
-          <AlertCircle className="w-4 h-4 text-red-700 shrink-0" />
-          <span>{validationWarning}</span>
-        </div>
-      )}
-
-      {/* SON ADIM (11): WHATSAPP MI INSTAGRAM MI İLETİŞİM TERCİHİ */}
-      {isOnFinalContactStep ? (
-        <div
-          key={`final-contact-${animKey}`}
-          className="bg-white rounded-3xl border border-zinc-200/90 p-6 sm:p-10 shadow-sm animate-section-enter"
-        >
-          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-semibold mb-4">
-            <MessageCircle className="w-3.5 h-3.5" />
-            <span>Son Adım (11 / 11) • Karşılıklı İletişim Tercihi</span>
-          </div>
-
-          <h2 className="text-2xl sm:text-3xl font-bold text-zinc-900 leading-snug mb-3">
-            Eğer profiline uyan birisi seninle iletişime geçmek isterse ve sen de o kişiyle iletişime geçmek istersen, WhatsApp üzerinden mi yoksa Instagram üzerinden mi iletişime geçilsin?
+      {/* ANA SORU KARTI */}
+      <div
+        key={currentQuestion.id}
+        className="bg-white rounded-3xl border border-zinc-200/90 p-6 sm:p-8 shadow-sm space-y-8 animate-question-next"
+      >
+        <div>
+          <span className="inline-block px-3 py-1 rounded-full bg-zinc-100 text-zinc-700 text-xs font-medium mb-3">
+            Soru {currentQuestion.code} • Cevaplamak Zorunludur
+          </span>
+          <h2 className="text-xl sm:text-2xl font-bold text-zinc-900 leading-snug">
+            {currentQuestion.prompt}
           </h2>
-          <p className="text-sm text-zinc-500 mb-8 leading-relaxed">
-            Seçtiğin iletişim kanalı <strong>kesinlikle gizli tutulur</strong>. Sadece sen ve eşleştiğin kişi karşılıklı olarak “İletişime Geç” onayını verdiğinizde açılır.
+          <p className="text-xs sm:text-sm text-zinc-500 mt-1.5">
+            {currentQuestion.helperText}
           </p>
 
-          {/* 3 Seçenek Kartı */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
-            {(
-              [
-                {
-                  id: 'whatsapp' as ContactPlatformChoice,
-                  title: 'WhatsApp Üzerinden İletişime Geçilsin',
-                  desc: 'Karşılıklı onay verildiğinde doğrudan WhatsApp sohbet bağlantısı açılır.',
-                },
-                {
-                  id: 'instagram' as ContactPlatformChoice,
-                  title: 'Instagram Üzerinden İletişime Geçilsin',
-                  desc: 'Telefon numaramı paylaşmadan önce Instagram üzerinden tanışmayı tercih ederim.',
-                },
-                {
-                  id: 'both' as ContactPlatformChoice,
-                  title: 'Her İkisi de Olur (WhatsApp & Instagram)',
-                  desc: 'Karşılıklı onaylandığında iki iletişim kanalım da eşleştiğim kişiye gösterilebilir.',
-                },
-              ] as const
-            ).map((item) => {
-              const isSelected = profile.preferredContactPlatform === item.id;
+          <div className="flex flex-wrap gap-2.5 mt-5">
+            {currentQuestion.options.map((opt) => {
+              const isSelected = currentAnswer.selectedOptionId === opt.id;
               return (
                 <button
-                  key={item.id}
+                  key={opt.id}
                   type="button"
-                  onClick={() => {
-                    setValidationWarning(null);
-                    onUpdateProfile({
-                      ...profile,
-                      preferredContactPlatform: item.id,
-                    });
-                  }}
-                  className={`p-5 rounded-2xl border-2 text-left transition-all flex flex-col justify-between ${
+                  onClick={() => handleSelectMainOption(opt.id)}
+                  className={`px-4 py-2.5 rounded-xl text-xs sm:text-sm font-medium border transition-all duration-150 flex items-center gap-2 ${
                     isSelected
-                      ? 'border-zinc-900 bg-zinc-900 text-white shadow-md'
-                      : 'border-zinc-200 bg-[#FAF8F5] hover:border-zinc-500 text-zinc-900'
+                      ? 'border-zinc-900 bg-zinc-900 text-white shadow-sm scale-[1.01]'
+                      : 'border-zinc-300 bg-white text-zinc-800 hover:border-zinc-500 hover:bg-zinc-50'
                   }`}
                 >
-                  <div>
-                    <div className="flex items-center justify-between mb-3">
-                      <span className="font-mono text-xs uppercase tracking-wider opacity-75">
-                        TERCİH
-                      </span>
-                      <span
-                        className={`w-6 h-6 rounded-full flex items-center justify-center border ${
-                          isSelected
-                            ? 'border-emerald-400 bg-emerald-400 text-zinc-950'
-                            : 'border-zinc-300'
-                        }`}
-                      >
-                        {isSelected && <Check className="w-3.5 h-3.5" />}
-                      </span>
-                    </div>
-                    <h3 className="font-bold text-base mb-2">{item.title}</h3>
-                  </div>
-                  <p
-                    className={`text-xs leading-relaxed ${
-                      isSelected ? 'text-zinc-300' : 'text-zinc-500'
-                    }`}
-                  >
-                    {item.desc}
-                  </p>
+                  <span>{opt.label}</span>
+                  {isSelected && <Check className="w-4 h-4 shrink-0" />}
                 </button>
               );
             })}
-          </div>
 
-          {/* Seçime Göre Açılan Güvenli Giriş Kutuları */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-5 p-6 rounded-2xl bg-[#FAF8F5] border border-zinc-200">
-            {(profile.preferredContactPlatform === 'whatsapp' ||
-              profile.preferredContactPlatform === 'both') && (
-              <div>
-                <label className="block text-xs font-bold text-zinc-800 mb-2">
-                  WhatsApp Telefon Numaran (Örn: 0532 123 45 67)
-                </label>
-                <input
-                  type="tel"
-                  inputMode="tel"
-                  value={profile.whatsappNumber}
-                  onChange={(e) => {
-                    setValidationWarning(null);
-                    onUpdateProfile({
-                      ...profile,
-                      whatsappNumber: sanitizeUserText(e.target.value, 20),
-                    });
-                  }}
-                  placeholder="05XX XXX XX XX"
-                  className="w-full p-3.5 rounded-xl border border-zinc-300 bg-white font-mono text-sm focus:outline-none focus:border-zinc-900"
-                />
-                <span className="block text-[11px] text-zinc-500 mt-1.5">
-                  Sadece karşılıklı onay verdiğin kişiye uçtan uca şifreli açılır.
-                </span>
-              </div>
+            {currentQuestion.allowCustomOther && (
+              <button
+                type="button"
+                onClick={() => handleSelectMainOption('other_custom')}
+                className={`px-4 py-2.5 rounded-xl text-xs sm:text-sm font-medium border transition-all flex items-center gap-1.5 ${
+                  currentAnswer.selectedOptionId === 'other_custom'
+                    ? 'border-zinc-900 bg-zinc-900 text-white shadow-sm'
+                    : 'border-dashed border-zinc-400 bg-zinc-50 text-zinc-700 hover:border-zinc-800'
+                }`}
+              >
+                <PlusCircle className="w-4 h-4 shrink-0" />
+                <span>Diğer (Kendim Yazacağım)</span>
+              </button>
             )}
 
-            {(profile.preferredContactPlatform === 'instagram' ||
-              profile.preferredContactPlatform === 'both') && (
-              <div>
-                <label className="block text-xs font-bold text-zinc-800 mb-2">
-                  Instagram Kullanıcı Adın (Örn: @kullaniciadi)
-                </label>
-                <input
-                  type="text"
-                  value={profile.instagramHandle}
-                  onChange={(e) => {
-                    setValidationWarning(null);
-                    onUpdateProfile({
-                      ...profile,
-                      instagramHandle: sanitizeInstagramHandle(e.target.value),
-                    });
-                  }}
-                  placeholder="@kullaniciadi"
-                  className="w-full p-3.5 rounded-xl border border-zinc-300 bg-white font-mono text-sm focus:outline-none focus:border-zinc-900"
-                />
-                <span className="block text-[11px] text-zinc-500 mt-1.5">
-                  Sadece karşılıklı onay verdiğin kişiye gösterilir.
-                </span>
-              </div>
+            {currentQuestion.allowPreferNotToSay && (
+              <button
+                type="button"
+                onClick={() => handleSelectMainOption('prefer_not_to_say')}
+                className={`px-4 py-2.5 rounded-xl text-xs sm:text-sm font-medium border transition-all flex items-center gap-1.5 ${
+                  currentAnswer.selectedOptionId === 'prefer_not_to_say'
+                    ? 'border-zinc-700 bg-zinc-700 text-white'
+                    : 'border-zinc-300 bg-zinc-100 text-zinc-600 hover:bg-zinc-200'
+                }`}
+              >
+                <EyeOff className="w-4 h-4 shrink-0" />
+                <span>Bahsetmek İstemiyorum</span>
+              </button>
             )}
           </div>
+
+          {currentAnswer.selectedOptionId === 'other_custom' && (
+            <div className="mt-4 p-4 rounded-2xl bg-[#FAF8F5] border border-zinc-300 animate-section-enter">
+              <label className="block text-xs font-semibold text-zinc-800 mb-1.5">
+                Lütfen kendi cevabını kısaca yaz:
+              </label>
+              <input
+                type="text"
+                maxLength={140}
+                value={currentAnswer.customOtherText || ''}
+                onChange={(e) =>
+                  onUpdateAnswer(currentQuestion.id, {
+                    ...currentAnswer,
+                    customOtherText: sanitizeUserText(e.target.value, 140),
+                  })
+                }
+                placeholder="Listede olmayan görüşünü, takımını, mesleğini veya tercihini buraya yaz..."
+                className="w-full px-3.5 py-2.5 rounded-xl border border-zinc-300 bg-white text-sm text-zinc-900 focus:outline-none focus:border-zinc-900"
+              />
+            </div>
+          )}
         </div>
-      ) : (
-        /* NORMAL SORULAR (01 - 10) */
-        <div
-          key={`${currentQuestion.id}-${animKey}`}
-          className={
-            transitionDir === 'next' ? 'animate-question-next' : 'animate-question-prev'
-          }
-        >
-          <div
-            className={`grid grid-cols-1 gap-6 ${
-              activeFollowUps.length > 0 ? 'lg:grid-cols-12' : 'lg:grid-cols-1'
-            }`}
-          >
-            {/* SOL KART: Ana Soru Kutucukları */}
+
+        {/* ALT SORULAR & KIRMIZI KUTUCUKLAR */}
+        {activeFollowUps.map((fBlock: FollowUpBlock) => {
+          const isRedMode = fBlock.mode === 'red_exclusion_multi';
+          const selectedSingle = currentAnswer.followUpSingleAnswers[fBlock.id] || '';
+
+          return (
             <div
-              className={`${
-                activeFollowUps.length > 0 ? 'lg:col-span-6' : 'lg:col-span-12'
-              } bg-white rounded-3xl border border-zinc-200/90 p-6 sm:p-8 shadow-sm flex flex-col justify-between min-w-0`}
+              key={fBlock.id}
+              className="pt-6 border-t border-zinc-200 animate-section-enter"
             >
-              <div>
-                <div className="inline-flex flex-wrap items-center gap-2 px-3 py-1 rounded-full bg-zinc-100 text-zinc-700 text-xs font-medium mb-4">
-                  <span>Soru {currentQuestion.code}</span>
-                  <span>•</span>
-                  <span>{currentQuestion.categoryLabel}</span>
-                  <span>•</span>
-                  <span className="text-red-700 font-semibold">Zorunlu</span>
-                </div>
+              <h3 className="text-lg sm:text-xl font-bold text-zinc-900 leading-snug">
+                {isRedMode ? (
+                  <>
+                    {fBlock.title.replace('kesinlikle birlikte olmazsınız?', '')}{' '}
+                    <span className="text-[#B90E0A] underline decoration-[#B90E0A]/40">
+                      kesinlikle birlikte olmazsınız?
+                    </span>
+                  </>
+                ) : (
+                  fBlock.title
+                )}
+              </h3>
+              <p className="text-xs sm:text-sm text-zinc-500 mt-1">{fBlock.subtitle}</p>
 
-                <h2 className="text-xl sm:text-3xl font-bold text-zinc-900 leading-snug mb-2 break-words">
-                  {currentQuestion.prompt}
-                </h2>
-                <p className="text-xs sm:text-sm text-zinc-500 mb-6 leading-relaxed">
-                  {currentQuestion.helperText}
-                </p>
-
-                {/* Tıklanabilir Kutucuklar */}
-                <div className="flex flex-wrap gap-2.5">
-                  {currentQuestion.options.map((opt) => {
-                    const isSelected = currentAnswer.selectedOptionId === opt.id;
+              <div className="flex flex-wrap gap-2.5 mt-4">
+                {fBlock.options.map((subOpt) => {
+                  if (isRedMode) {
+                    const isRedSelected = currentAnswer.excludedRedIds.includes(
+                      subOpt.id
+                    );
                     return (
                       <button
-                        key={opt.id}
+                        key={subOpt.id}
                         type="button"
-                        onClick={() => handleSelectMainOption(opt.id)}
-                        className={`px-4 py-3 rounded-xl border text-xs sm:text-sm font-medium transition-all duration-150 text-left break-words ${
-                          isSelected
-                            ? 'bg-zinc-900 text-white border-zinc-900 shadow-sm scale-[1.01]'
-                            : 'bg-white text-zinc-800 border-zinc-200 hover:border-zinc-400 hover:bg-zinc-50'
+                        onClick={() => handleToggleRedExclusion(subOpt.id)}
+                        className={`px-4 py-2.5 rounded-xl text-xs sm:text-sm font-medium border transition-all duration-150 ${
+                          isRedSelected
+                            ? 'border-[#B90E0A] bg-[#B90E0A] text-white shadow-sm scale-[1.02]'
+                            : 'border-zinc-300 bg-white text-zinc-800 hover:border-red-300 hover:bg-red-50/40'
                         }`}
                       >
-                        {opt.label}
+                        {subOpt.label}
                       </button>
                     );
-                  })}
+                  }
 
-                  {/* DİĞER (KENDİN YAZ) */}
-                  {currentQuestion.allowCustomOther && (
+                  const isSingleSelected = selectedSingle === subOpt.id;
+                  return (
                     <button
+                      key={subOpt.id}
                       type="button"
-                      onClick={() => handleSelectMainOption('other_custom')}
-                      className={`px-4 py-3 rounded-xl border text-xs sm:text-sm font-medium transition-all duration-150 ${
-                        currentAnswer.selectedOptionId === 'other_custom'
-                          ? 'bg-zinc-900 text-white border-zinc-900 shadow-sm'
-                          : 'bg-zinc-50 text-zinc-700 border-dashed border-zinc-300 hover:border-zinc-600'
+                      onClick={() => handleSelectFollowUpSingle(fBlock.id, subOpt.id)}
+                      className={`px-4 py-2.5 rounded-xl text-xs sm:text-sm font-medium border transition-all duration-150 flex items-center gap-1.5 ${
+                        isSingleSelected
+                          ? 'border-zinc-900 bg-zinc-900 text-white shadow-sm'
+                          : 'border-zinc-300 bg-white text-zinc-800 hover:border-zinc-500'
                       }`}
                     >
-                      + Diğer (Kendim Yazacağım)
+                      <span>{subOpt.label}</span>
+                      {isSingleSelected && <Check className="w-3.5 h-3.5 shrink-0" />}
                     </button>
-                  )}
+                  );
+                })}
 
-                  {/* BAHSETMEK İSTEMİYORUM */}
-                  {currentQuestion.allowPreferNotToSay && (
-                    <button
-                      type="button"
-                      onClick={() => handleSelectMainOption('prefer_not_to_say')}
-                      className={`px-4 py-3 rounded-xl border text-xs sm:text-sm font-medium transition-all duration-150 ${
-                        currentAnswer.selectedOptionId === 'prefer_not_to_say'
-                          ? 'bg-zinc-700 text-white border-zinc-700 shadow-sm'
-                          : 'bg-zinc-50 text-zinc-500 border-zinc-200 hover:border-zinc-400 hover:text-zinc-800'
-                      }`}
-                    >
-                      Bahsetmek İstemiyorum
-                    </button>
-                  )}
+                {!isRedMode && fBlock.allowCustomOther && (
+                  <button
+                    type="button"
+                    onClick={() => handleSelectFollowUpSingle(fBlock.id, 'other_custom')}
+                    className={`px-4 py-2.5 rounded-xl text-xs sm:text-sm font-medium border transition-all flex items-center gap-1.5 ${
+                      selectedSingle === 'other_custom'
+                        ? 'border-zinc-900 bg-zinc-900 text-white'
+                        : 'border-dashed border-zinc-400 bg-zinc-50 text-zinc-700'
+                    }`}
+                  >
+                    <PlusCircle className="w-3.5 h-3.5" />
+                    <span>Diğer (Yazacağım)</span>
+                  </button>
+                )}
+
+                {!isRedMode && fBlock.allowPreferNotToSay && (
+                  <button
+                    type="button"
+                    onClick={() =>
+                      handleSelectFollowUpSingle(fBlock.id, 'prefer_not_to_say')
+                    }
+                    className={`px-4 py-2.5 rounded-xl text-xs sm:text-sm font-medium border transition-all flex items-center gap-1.5 ${
+                      selectedSingle === 'prefer_not_to_say'
+                        ? 'border-zinc-700 bg-zinc-700 text-white'
+                        : 'border-zinc-300 bg-zinc-100 text-zinc-600'
+                    }`}
+                  >
+                    <EyeOff className="w-3.5 h-3.5" />
+                    <span>Bahsetmek İstemiyorum</span>
+                  </button>
+                )}
+              </div>
+
+              {!isRedMode && selectedSingle === 'other_custom' && (
+                <div className="mt-3 p-3.5 rounded-2xl bg-[#FAF8F5] border border-zinc-300">
+                  <input
+                    type="text"
+                    maxLength={140}
+                    value={currentAnswer.followUpCustomTexts[fBlock.id] || ''}
+                    onChange={(e) =>
+                      onUpdateAnswer(currentQuestion.id, {
+                        ...currentAnswer,
+                        followUpCustomTexts: {
+                          ...currentAnswer.followUpCustomTexts,
+                          [fBlock.id]: sanitizeUserText(e.target.value, 140),
+                        },
+                      })
+                    }
+                    placeholder="Lütfen kendi cevabını buraya yaz..."
+                    className="w-full px-3.5 py-2 rounded-xl border border-zinc-300 bg-white text-sm text-zinc-900 focus:outline-none focus:border-zinc-900"
+                  />
                 </div>
+              )}
+            </div>
+          );
+        })}
 
-                {/* "Diğer" Metin Kutusu */}
-                {currentAnswer.selectedOptionId === 'other_custom' && (
-                  <div className="mt-5 p-4 rounded-2xl bg-zinc-50 border border-zinc-300 animate-section-enter">
-                    <label className="block text-xs font-semibold text-zinc-800 mb-2">
-                      Listede olmayan cevabını buraya yaz:
+        {/* SON SORUDA (10. SORU) WHATSAPP / INSTAGRAM İLETİŞİM TERCİHİ */}
+        {currentIndex === QUESTIONS.length - 1 && (
+          <div className="pt-8 border-t-2 border-zinc-900 space-y-5 animate-section-enter">
+            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-50 border border-emerald-200 text-emerald-900 text-xs font-semibold">
+              <ShieldCheck className="w-4 h-4 text-emerald-700" />
+              <span>Profil Tamamlama • Son Zorunlu Tercih</span>
+            </div>
+
+            <h3 className="text-lg sm:text-xl font-bold text-zinc-900 leading-snug">
+              Eğer profiline uyan birisi seninle iletişime geçmek isterse ve sen de o kişiyle iletişime geçmek istersen,{' '}
+              <span className="underline decoration-zinc-900">
+                WhatsApp üzerinden mi yoksa Instagram üzerinden mi
+              </span>{' '}
+              iletişime geçilsin?
+            </h3>
+
+            <p className="text-xs sm:text-sm text-zinc-600 leading-relaxed">
+              İletişim bilgin Türkiye sunucumuzda şifreli olarak saklanır ve kimseye açık gösterilmez. Yalnızca iki taraf da karşılıklı onay verdiğinde seçtiğin kanal açılır.
+            </p>
+
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <button
+                type="button"
+                onClick={() => handleSelectContactPlatform('whatsapp')}
+                className={`p-4 rounded-2xl border text-left transition-all flex items-center justify-between ${
+                  profile.contactPreferenceConfirmed &&
+                  profile.preferredContactPlatform === 'whatsapp'
+                    ? 'border-zinc-900 bg-zinc-900 text-white shadow-sm'
+                    : 'border-zinc-300 bg-white text-zinc-900 hover:border-zinc-600'
+                }`}
+              >
+                <div className="flex items-center gap-3">
+                  <Phone className="w-5 h-5 shrink-0" />
+                  <div>
+                    <span className="block text-sm font-bold">WhatsApp</span>
+                    <span className="block text-[11px] opacity-80">
+                      WhatsApp üzerinden yazışılsın
+                    </span>
+                  </div>
+                </div>
+                {profile.contactPreferenceConfirmed &&
+                  profile.preferredContactPlatform === 'whatsapp' && (
+                    <Check className="w-4 h-4 shrink-0" />
+                  )}
+              </button>
+
+              <button
+                type="button"
+                onClick={() => handleSelectContactPlatform('instagram')}
+                className={`p-4 rounded-2xl border text-left transition-all flex items-center justify-between ${
+                  profile.contactPreferenceConfirmed &&
+                  profile.preferredContactPlatform === 'instagram'
+                    ? 'border-zinc-900 bg-zinc-900 text-white shadow-sm'
+                    : 'border-zinc-300 bg-white text-zinc-900 hover:border-zinc-600'
+                }`}
+              >
+                <div className="flex items-center gap-3">
+                  <Instagram className="w-5 h-5 shrink-0" />
+                  <div>
+                    <span className="block text-sm font-bold">Instagram</span>
+                    <span className="block text-[11px] opacity-80">
+                      Instagram üzerinden iletişime geçilsin
+                    </span>
+                  </div>
+                </div>
+                {profile.contactPreferenceConfirmed &&
+                  profile.preferredContactPlatform === 'instagram' && (
+                    <Check className="w-4 h-4 shrink-0" />
+                  )}
+              </button>
+
+              <button
+                type="button"
+                onClick={() => handleSelectContactPlatform('both')}
+                className={`p-4 rounded-2xl border text-left transition-all flex items-center justify-between ${
+                  profile.contactPreferenceConfirmed &&
+                  profile.preferredContactPlatform === 'both'
+                    ? 'border-zinc-900 bg-zinc-900 text-white shadow-sm'
+                    : 'border-zinc-300 bg-white text-zinc-900 hover:border-zinc-600'
+                }`}
+              >
+                <div>
+                  <span className="block text-sm font-bold">Her İkisi de Olur</span>
+                  <span className="block text-[11px] opacity-80">
+                    WhatsApp veya Instagram fark etmez
+                  </span>
+                </div>
+                {profile.contactPreferenceConfirmed &&
+                  profile.preferredContactPlatform === 'both' && (
+                    <Check className="w-4 h-4 shrink-0" />
+                  )}
+              </button>
+            </div>
+
+            {profile.contactPreferenceConfirmed && (
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 p-4 rounded-2xl bg-[#FAF8F5] border border-zinc-300">
+                {(profile.preferredContactPlatform === 'whatsapp' ||
+                  profile.preferredContactPlatform === 'both') && (
+                  <div>
+                    <label className="block text-xs font-semibold text-zinc-800 mb-1.5">
+                      WhatsApp Telefon Numaran (Karşılıklı Onayda Açılır)
+                    </label>
+                    <input
+                      type="tel"
+                      maxLength={20}
+                      value={profile.whatsappNumber}
+                      onChange={(e) =>
+                        onUpdateProfile({
+                          ...profile,
+                          whatsappNumber: sanitizeUserText(e.target.value, 20),
+                        })
+                      }
+                      placeholder="0532 890 12 34"
+                      className="w-full px-3.5 py-2.5 rounded-xl border border-zinc-300 bg-white text-sm font-mono text-zinc-900 focus:outline-none focus:border-zinc-900"
+                    />
+                  </div>
+                )}
+
+                {(profile.preferredContactPlatform === 'instagram' ||
+                  profile.preferredContactPlatform === 'both') && (
+                  <div>
+                    <label className="block text-xs font-semibold text-zinc-800 mb-1.5">
+                      Instagram Kullanıcı Adın (Karşılıklı Onayda Açılır)
                     </label>
                     <input
                       type="text"
-                      autoFocus
-                      value={currentAnswer.customOtherText || ''}
+                      maxLength={35}
+                      value={profile.instagramHandle}
                       onChange={(e) =>
-                        onUpdateAnswer(currentQuestion.id, {
-                          ...currentAnswer,
-                          customOtherText: sanitizeUserText(e.target.value, 100),
+                        onUpdateProfile({
+                          ...profile,
+                          instagramHandle: sanitizeInstagramHandle(e.target.value),
                         })
                       }
-                      placeholder="Cevabını buraya yaz..."
-                      className="w-full p-3 rounded-xl border border-zinc-300 bg-white text-sm focus:outline-none focus:border-zinc-900"
+                      placeholder="kullanici.adin"
+                      className="w-full px-3.5 py-2.5 rounded-xl border border-zinc-300 bg-white text-sm font-mono text-zinc-900 focus:outline-none focus:border-zinc-900"
                     />
                   </div>
                 )}
               </div>
-
-              <div className="mt-6 pt-4 border-t border-zinc-100 flex items-center justify-between text-xs text-zinc-400">
-                <span>Seçimin güvenli veritabanına anonim olarak kaydedilir.</span>
-                {isCurrentStepComplete && (
-                  <span className="text-emerald-700 font-semibold flex items-center gap-1 shrink-0">
-                    <Check className="w-3.5 h-3.5" />
-                    Yanıtlandı
-                  </span>
-                )}
-              </div>
-            </div>
-
-            {/* SAĞ KARTLAR: Cevaba Göre Açılan Alt Sorular ve Kırmızı Kutucuklar */}
-            {activeFollowUps.length > 0 && (
-              <div className="lg:col-span-6 space-y-6 animate-section-enter min-w-0">
-                {activeFollowUps.map((followUp) => {
-                  const isRedMode = followUp.mode === 'red_exclusion_multi';
-                  const selectedSubId = currentAnswer.followUpSingleAnswers[followUp.id] || '';
-
-                  return (
-                    <div
-                      key={followUp.id}
-                      className="bg-white rounded-3xl border border-zinc-200/90 p-6 sm:p-8 shadow-sm min-w-0"
-                    >
-                      <h3 className="text-lg sm:text-2xl font-bold text-zinc-900 leading-snug mb-1.5 break-words">
-                        {followUp.title.includes('kesinlikle') ? (
-                          <>
-                            {followUp.title.split('kesinlikle')[0]}
-                            <span className="text-[#B90E0A]">
-                              kesinlikle {followUp.title.split('kesinlikle')[1]}
-                            </span>
-                          </>
-                        ) : (
-                          followUp.title
-                        )}
-                      </h3>
-
-                      {followUp.subtitle && (
-                        <p className="text-xs sm:text-sm text-zinc-500 mb-5 leading-relaxed">
-                          {followUp.subtitle}
-                        </p>
-                      )}
-
-                      <div className="flex flex-wrap gap-2.5 mt-4">
-                        {followUp.options.map((opt) => {
-                          if (isRedMode) {
-                            const isExcludedRed = currentAnswer.excludedRedIds.includes(opt.id);
-                            return (
-                              <button
-                                key={opt.id}
-                                type="button"
-                                onClick={() => handleToggleRedExclusion(opt.id)}
-                                className={`px-4 py-2.5 rounded-xl border text-xs sm:text-sm font-medium transition-all duration-150 text-left break-words ${
-                                  isExcludedRed
-                                    ? 'bg-[#B90E0A] text-white border-[#B90E0A] shadow-sm scale-[1.01]'
-                                    : 'bg-white text-zinc-800 border-zinc-200 hover:border-red-300 hover:bg-red-50/40'
-                                }`}
-                              >
-                                {opt.label}
-                              </button>
-                            );
-                          }
-
-                          const isSubSelected = selectedSubId === opt.id;
-                          return (
-                            <button
-                              key={opt.id}
-                              type="button"
-                              onClick={() => handleSelectFollowUpSingle(followUp.id, opt.id)}
-                              className={`px-4 py-2.5 rounded-xl border text-xs sm:text-sm font-medium transition-all duration-150 text-left break-words ${
-                                isSubSelected
-                                  ? 'bg-zinc-900 text-white border-zinc-900 shadow-sm'
-                                  : 'bg-white text-zinc-800 border-zinc-200 hover:border-zinc-400 hover:bg-zinc-50'
-                              }`}
-                            >
-                              {opt.label}
-                            </button>
-                          );
-                        })}
-
-                        {!isRedMode && followUp.allowCustomOther && (
-                          <button
-                            type="button"
-                            onClick={() =>
-                              handleSelectFollowUpSingle(followUp.id, 'other_custom')
-                            }
-                            className={`px-4 py-2.5 rounded-xl border text-xs sm:text-sm font-medium transition-all ${
-                              selectedSubId === 'other_custom'
-                                ? 'bg-zinc-900 text-white border-zinc-900'
-                                : 'bg-zinc-50 text-zinc-700 border-dashed border-zinc-300 hover:border-zinc-600'
-                            }`}
-                          >
-                            + Diğer (Kendin Yaz)
-                          </button>
-                        )}
-
-                        {!isRedMode && followUp.allowPreferNotToSay && (
-                          <button
-                            type="button"
-                            onClick={() =>
-                              handleSelectFollowUpSingle(followUp.id, 'prefer_not_to_say')
-                            }
-                            className={`px-4 py-2.5 rounded-xl border text-xs sm:text-sm font-medium transition-all ${
-                              selectedSubId === 'prefer_not_to_say'
-                                ? 'bg-zinc-700 text-white border-zinc-700'
-                                : 'bg-zinc-50 text-zinc-500 border-zinc-200 hover:border-zinc-400'
-                            }`}
-                          >
-                            Bahsetmek İstemiyorum
-                          </button>
-                        )}
-                      </div>
-
-                      {!isRedMode && selectedSubId === 'other_custom' && (
-                        <div className="mt-4 p-3.5 rounded-xl bg-zinc-50 border border-zinc-300">
-                          <input
-                            type="text"
-                            value={currentAnswer.followUpCustomTexts[followUp.id] || ''}
-                            onChange={(e) =>
-                              onUpdateAnswer(currentQuestion.id, {
-                                ...currentAnswer,
-                                followUpCustomTexts: {
-                                  ...currentAnswer.followUpCustomTexts,
-                                  [followUp.id]: sanitizeUserText(e.target.value, 100),
-                                },
-                              })
-                            }
-                            placeholder="Lütfen buraya yaz..."
-                            className="w-full p-2.5 rounded-lg border border-zinc-300 bg-white text-sm focus:outline-none focus:border-zinc-900"
-                          />
-                        </div>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
             )}
           </div>
-        </div>
-      )}
+        )}
 
-      {/* Alt Navigasyon Çubuğu */}
-      <div className="mt-8 bg-white rounded-2xl border border-zinc-200 p-4 sm:px-6 flex flex-col sm:flex-row items-center justify-between gap-4 shadow-sm">
-        <button
-          type="button"
-          onClick={() => goToStep(Math.max(0, currentIndex - 1))}
-          disabled={currentIndex === 0}
-          className="w-full sm:w-auto px-5 py-3.5 rounded-xl border border-zinc-300 text-xs font-semibold uppercase tracking-wider text-zinc-700 disabled:opacity-40 flex items-center justify-center gap-2 hover:border-zinc-900 transition-colors"
-        >
-          <ArrowLeft className="w-4 h-4" />
-          <span>Önceki Adım</span>
-        </button>
+        {validationError && (
+          <div className="p-4 rounded-2xl bg-red-50 border border-red-200 text-xs text-red-900 font-medium flex items-center gap-2.5">
+            <AlertCircle className="w-4 h-4 text-[#B90E0A] shrink-0" />
+            <span>{validationError}</span>
+          </div>
+        )}
 
-        <div className="flex items-center gap-3 w-full sm:w-auto justify-end">
+        {/* Alt Gezinme Çubuğu */}
+        <div className="pt-6 border-t border-zinc-200 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
           <button
             type="button"
-            onClick={handleNextOrFinish}
-            className={`w-full sm:w-auto px-7 py-3.5 rounded-xl text-xs font-semibold uppercase tracking-wider flex items-center justify-center gap-2 transition-all ${
-              isCurrentStepComplete
-                ? 'bg-zinc-900 hover:bg-zinc-800 text-white shadow-sm cursor-pointer'
-                : 'bg-zinc-200 text-zinc-500 cursor-not-allowed'
+            onClick={handleGoPrev}
+            disabled={currentIndex === 0}
+            className={`px-5 py-3 rounded-xl border text-xs font-semibold uppercase tracking-wider flex items-center justify-center gap-2 ${
+              currentIndex === 0
+                ? 'border-zinc-200 text-zinc-300 cursor-not-allowed'
+                : 'border-zinc-300 text-zinc-800 hover:border-zinc-900 bg-white'
             }`}
           >
-            {!isCurrentStepComplete && <Lock className="w-3.5 h-3.5 shrink-0" />}
+            <ArrowLeft className="w-4 h-4" />
+            <span>Önceki Soru</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={handleGoNext}
+            className={`px-6 py-3.5 rounded-xl text-xs font-semibold uppercase tracking-wider flex items-center justify-center gap-2 transition-all ${
+              isCurrentQuestionValid() &&
+              (currentIndex < QUESTIONS.length - 1 || isContactPreferenceStepValid())
+                ? 'bg-zinc-900 text-white hover:bg-zinc-800 shadow-sm'
+                : 'bg-zinc-200 text-zinc-600 hover:bg-zinc-300'
+            }`}
+          >
             <span>
-              {!isOnFinalContactStep
-                ? 'Seçimi Kaydet ve Sonraki Soruya Geç'
-                : 'Profili Tamamla ve Eşleşmeleri Gör'}
+              {currentIndex === QUESTIONS.length - 1
+                ? 'Kaydet ve Eşleşmeleri Gör'
+                : 'Kaydet ve Sonraki Soruya Geç'}
             </span>
-            <ArrowRight className="w-4 h-4 shrink-0" />
+            <ArrowRight className="w-4 h-4" />
           </button>
         </div>
       </div>
