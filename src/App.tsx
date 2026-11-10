@@ -66,6 +66,8 @@ export function App() {
     whatsappNumber: '',
     instagramHandle: '',
     contactPreferenceConfirmed: true,
+    smsVerified: false,
+    cameraLivenessVerified: false,
     registrationCompleted: false,
   });
 

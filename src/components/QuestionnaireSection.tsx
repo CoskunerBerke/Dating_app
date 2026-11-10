@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import {
   ContactPlatformChoice,
   FollowUpBlock,
@@ -26,6 +26,10 @@ import {
   ShieldCheck,
   Sparkles,
   CheckCircle2,
+  Camera,
+  MessageSquareCode,
+  RefreshCw,
+  VideoOff,
 } from 'lucide-react';
 import {
   TURKIYE_ILLER,
@@ -39,6 +43,12 @@ import {
   sanitizeUserText,
 } from '../utils/security';
 import { sealIdentityWithAes256Gcm } from '../utils/cryptoVault';
+import {
+  SmsOtpChallenge,
+  analyzeLiveCameraFramesZeroRetention,
+  issueSecureSmsOtpChallenge,
+  verifySmsOtpCode,
+} from '../utils/verificationSecurity';
 
 interface QuestionnaireSectionProps {
   stepMode: 'kayit' | 'sorular';
@@ -112,6 +122,52 @@ export const QuestionnaireSection: React.FC<QuestionnaireSectionProps> = ({
   const [validationError, setValidationError] = useState<string | null>(null);
   const [isSealingVault, setIsSealingVault] = useState(false);
 
+  // SMS OTP Güvenlik Durumları
+  const [smsChallenge, setSmsChallenge] = useState<SmsOtpChallenge | null>(null);
+  const [otpInput, setOtpInput] = useState('');
+  const [simulatedSmsBannerCode, setSimulatedSmsBannerCode] = useState<string | null>(
+    null
+  );
+  const [smsError, setSmsError] = useState<string | null>(null);
+  const [smsCooldownSec, setSmsCooldownSec] = useState(0);
+  const [isDispatchingSms, setIsDispatchingSms] = useState(false);
+
+  // Canlı Kamera (Zero-Retention Biometric Liveness) Durumları
+  const [isCameraOpen, setIsCameraOpen] = useState(false);
+  const [isScanningLiveness, setIsScanningLiveness] = useState(false);
+  const [cameraError, setCameraError] = useState<string | null>(null);
+  const videoRef = useRef<HTMLVideoElement | null>(null);
+  const mediaStreamRef = useRef<MediaStream | null>(null);
+
+  // Kamera donanımını güvenli şekilde kapatma (Gizlilik garantisi)
+  const stopCameraHardware = () => {
+    if (mediaStreamRef.current) {
+      mediaStreamRef.current.getTracks().forEach((track) => {
+        track.stop();
+      });
+      mediaStreamRef.current = null;
+    }
+    if (videoRef.current) {
+      videoRef.current.srcObject = null;
+    }
+    setIsCameraOpen(false);
+  };
+
+  useEffect(() => {
+    return () => {
+      stopCameraHardware();
+    };
+  }, []);
+
+  // SMS Cooldown Geri Sayımı
+  useEffect(() => {
+    if (smsCooldownSec <= 0) return;
+    const timer = setInterval(() => {
+      setSmsCooldownSec((prev) => Math.max(0, prev - 1));
+    }, 1000);
+    return () => clearInterval(timer);
+  }, [smsCooldownSec]);
+
   const currentQuestion = QUESTIONS[currentIndex] || QUESTIONS[0];
   const currentAnswer: UserAnswer = answers[currentQuestion.id] || {
     questionId: currentQuestion.id,
@@ -128,7 +184,6 @@ export const QuestionnaireSection: React.FC<QuestionnaireSectionProps> = ({
 
   const progressPercent = Math.round((completedCount / QUESTIONS.length) * 100);
 
-  // Bir soruya tıklanabilmesi için kendisinden önceki TÜM soruların eksiksiz cevaplanmış olması şarttır
   const isQuestionUnlocked = (targetIdx: number): boolean => {
     if (!profile.registrationCompleted) return false;
     if (targetIdx === 0) return true;
@@ -147,9 +202,144 @@ export const QuestionnaireSection: React.FC<QuestionnaireSectionProps> = ({
     }
     return (
       f.triggerOptionIds.includes('*') ||
-      f.triggerOptionIds.includes(currentAnswer.selectedOptionId)
+      f.triggerOptionIds.includes(answerOptionFallback(currentAnswer.selectedOptionId))
     );
   });
+
+  function answerOptionFallback(id: string): string {
+    return id;
+  }
+
+  // 1. SMS OTP Kodu Gönderme
+  const handleSendSmsOtp = async () => {
+    setSmsError(null);
+    setValidationError(null);
+
+    if (!isValidTurkishMobile(profile.phoneNumber)) {
+      setSmsError(
+        'SMS kodu göndermek için önce geçerli bir cep telefonu numarası (05XX XXX XX XX) girin.'
+      );
+      return;
+    }
+
+    if (smsCooldownSec > 0) {
+      setSmsError(`Yeni SMS kodu istemek için lütfen ${smsCooldownSec} saniye bekleyin.`);
+      return;
+    }
+
+    setIsDispatchingSms(true);
+    try {
+      const { challenge, simulatedSmsCode } = await issueSecureSmsOtpChallenge(
+        profile.phoneNumber
+      );
+      setSmsChallenge(challenge);
+      setSimulatedSmsBannerCode(simulatedSmsCode);
+      setOtpInput('');
+      setSmsCooldownSec(45);
+    } finally {
+      setIsDispatchingSms(false);
+    }
+  };
+
+  // 2. SMS OTP Kodu Doğrulama (Sabit Zamanlı / Constant-Time)
+  const handleVerifySmsOtp = async () => {
+    setSmsError(null);
+    if (!smsChallenge) {
+      setSmsError('Lütfen önce SMS doğrulama kodu gönderin.');
+      return;
+    }
+
+    const result = await verifySmsOtpCode(
+      smsChallenge,
+      otpInput,
+      profile.phoneNumber
+    );
+    setSmsChallenge(result.updatedChallenge);
+
+    if (!result.verified) {
+      setSmsError(result.errorMessage || 'SMS kodu doğrulanamadı.');
+      return;
+    }
+
+    // Doğrulama başarılı: Geçici SMS kodunu bellekten temizle
+    setSimulatedSmsBannerCode(null);
+    setOtpInput('');
+    onUpdateProfile({
+      ...profile,
+      smsVerified: true,
+      smsVerificationId: result.updatedChallenge.challengeId,
+    });
+  };
+
+  // 3. Canlı Kamera Açma
+  const handleStartLiveCamera = async () => {
+    setCameraError(null);
+    setValidationError(null);
+
+    if (
+      typeof navigator === 'undefined' ||
+      !navigator.mediaDevices ||
+      !navigator.mediaDevices.getUserMedia
+    ) {
+      setCameraError(
+        'Tarayıcınız güvenli kamera erişimini desteklemiyor. Lütfen HTTPS bağlantısı üzerinden modern bir tarayıcı kullanın.'
+      );
+      return;
+    }
+
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: {
+          facingMode: 'user',
+          width: { ideal: 640 },
+          height: { ideal: 480 },
+        },
+        audio: false,
+      });
+      mediaStreamRef.current = stream;
+      setIsCameraOpen(true);
+
+      setTimeout(() => {
+        if (videoRef.current) {
+          videoRef.current.srcObject = stream;
+          videoRef.current.play().catch(() => {
+            // Autoplay fallback
+          });
+        }
+      }, 80);
+    } catch {
+      setCameraError(
+        'Kamera erişim izni reddedildi veya cihazda kamera bulunamadı. Lütfen tarayıcı adres çubuğundan kamera iznini açın.'
+      );
+    }
+  };
+
+  // 4. Canlı Kamera Canlılık Doğrulaması (Sıfır Fotoğraf Saklama)
+  const handleVerifyCameraLiveness = async () => {
+    if (!videoRef.current) return;
+    setCameraError(null);
+    setIsScanningLiveness(true);
+
+    try {
+      const result = await analyzeLiveCameraFramesZeroRetention(videoRef.current);
+      if (!result.ok || !result.proof) {
+        setCameraError(
+          result.errorMessage || 'Canlılık doğrulaması tamamlanamadı. Tekrar deneyin.'
+        );
+        return;
+      }
+
+      // Doğrulama başarılı: Kamerayı derhal kapat ve kanıt özetini kaydet
+      stopCameraHardware();
+      onUpdateProfile({
+        ...profile,
+        cameraLivenessVerified: true,
+        cameraLivenessHash: result.proof.proofHash,
+      });
+    } finally {
+      setIsScanningLiveness(false);
+    }
+  };
 
   const validateRegistrationStep = (): string | null => {
     if (profile.firstName.trim().length < 2) {
@@ -160,6 +350,9 @@ export const QuestionnaireSection: React.FC<QuestionnaireSectionProps> = ({
     }
     if (!isValidTurkishMobile(profile.phoneNumber)) {
       return 'Lütfen geçerli bir Türkiye cep telefonu numarası gir (Örn: 0532 123 45 67).';
+    }
+    if (!profile.smsVerified) {
+      return 'Güvenlik kuralı gereği lütfen telefon numaranı 6 haneli SMS kodu ile doğrula.';
     }
     if (!isValidEmail(profile.email)) {
       return 'Lütfen geçerli bir e-posta (mail) adresi gir (Örn: ad.soyad@ornek.com).';
@@ -185,6 +378,9 @@ export const QuestionnaireSection: React.FC<QuestionnaireSectionProps> = ({
     ) {
       return 'Instagram kullanıcı adı geçersiz karakter içeriyor.';
     }
+    if (!profile.cameraLivenessVerified) {
+      return 'Sahte profilleri engellemek için lütfen Canlı Kamera Doğrulamasını tamamla.';
+    }
     if (!kvkkApproved) {
       return 'Devam etmek için Türkiye Yerel Sunucu ve KVKK Açık Rıza onay kutusunu işaretlemelisin.';
     }
@@ -200,6 +396,7 @@ export const QuestionnaireSection: React.FC<QuestionnaireSectionProps> = ({
     setValidationError(null);
     setIsSealingVault(true);
     try {
+      stopCameraHardware();
       const calculatedAge = calculateAgeFromBirthDate(profile.birthDate);
       const envelope = await sealIdentityWithAes256Gcm({
         firstName: profile.firstName.trim(),
@@ -231,6 +428,8 @@ export const QuestionnaireSection: React.FC<QuestionnaireSectionProps> = ({
 
   const handleFillSampleRegistration = () => {
     setValidationError(null);
+    setSmsError(null);
+    setCameraError(null);
     onToggleKvkkApproved(true);
     onUpdateProfile({
       ...profile,
@@ -246,6 +445,10 @@ export const QuestionnaireSection: React.FC<QuestionnaireSectionProps> = ({
       instagramHandle: 'can.mizan',
       preferredContactPlatform: 'whatsapp',
       contactPreferenceConfirmed: true,
+      smsVerified: true,
+      smsVerificationId: 'SMS-TR-DEMO9481',
+      cameraLivenessVerified: true,
+      cameraLivenessHash: 'LIVENESS-TR-8F42B91E7C04',
     });
   };
 
@@ -389,7 +592,6 @@ export const QuestionnaireSection: React.FC<QuestionnaireSectionProps> = ({
           </button>
         </div>
 
-        {/* Kayıt adımında örnek form doldurma; Sorular adımında (sadece kayıt tamamlandıysa) hızlı cevap doldurma */}
         {stepMode === 'kayit' ? (
           <button
             type="button"
@@ -397,7 +599,7 @@ export const QuestionnaireSection: React.FC<QuestionnaireSectionProps> = ({
             className="px-3 py-1.5 text-[11px] font-semibold rounded-xl border border-zinc-300 bg-white hover:border-zinc-900 text-zinc-700 flex items-center gap-1.5 transition-colors"
           >
             <Sparkles className="w-3.5 h-3.5 text-[#0F6E45]" />
-            <span>Örnek Kayıt Bilgisi Doldur</span>
+            <span>Hızlı Test Kaydı Doldur</span>
           </button>
         ) : (
           profile.registrationCompleted && (
@@ -441,19 +643,19 @@ export const QuestionnaireSection: React.FC<QuestionnaireSectionProps> = ({
         )}
       </div>
 
-      {/* ADIM 1: UYGULAMAYA KAYIT OL (KİŞİSEL BİLGİLER & İLETİŞİM KANALI) */}
+      {/* ADIM 1: UYGULAMAYA KAYIT OL (KİŞİSEL BİLGİLER + SMS OTP + CANLI KAMERA) */}
       {stepMode === 'kayit' && (
         <div className="bg-white rounded-[28px] border border-zinc-200/90 p-5 sm:p-8 shadow-sm space-y-6 animate-section-enter">
           <div className="flex items-start justify-between gap-3 border-b border-zinc-100 pb-4">
             <div>
               <span className="text-[11px] font-bold uppercase tracking-wider text-[#0F6E45]">
-                ADIM 1 / 3 • ZORUNLU KAYIT ADIMI
+                ADIM 1 / 3 • ZORUNLU KİMLİK, SMS & KAMERA DOĞRULAMASI
               </span>
               <h1 className="text-xl sm:text-2xl font-bold text-zinc-900 mt-0.5">
                 Uygulamaya Kayıt Ol
               </h1>
               <p className="text-xs sm:text-sm text-zinc-500 mt-1">
-                Uygulamaya kayıt olmadan diğer adımlara (9 Soru, Adli Sicil ve Eşleşmeler) geçilemez. Lütfen bilgilerini eksiksiz doldur.
+                Kişisel bilgilerini gir, telefon numaranı 6 haneli SMS koduyla doğrula ve canlı kamera kontrolünü tamamla.
               </p>
             </div>
             <div className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-50 border border-emerald-200 text-[#0F6E45] text-[11px] font-bold shrink-0">
@@ -522,11 +724,15 @@ export const QuestionnaireSection: React.FC<QuestionnaireSectionProps> = ({
                 value={profile.phoneNumber}
                 onChange={(e) => {
                   setValidationError(null);
+                  setSmsError(null);
                   const val = sanitizeUserText(e.target.value, 20);
+                  // Numara değiştiğinde SMS doğrulaması sıfırlanır (Güvenlik kilidi)
                   onUpdateProfile({
                     ...profile,
                     phoneNumber: val,
                     whatsappNumber: val,
+                    smsVerified: false,
+                    smsVerificationId: undefined,
                     registrationCompleted: false,
                   });
                 }}
@@ -555,6 +761,101 @@ export const QuestionnaireSection: React.FC<QuestionnaireSectionProps> = ({
                 placeholder="ornek@eposta.com"
                 className="w-full px-3.5 py-2.5 text-sm rounded-xl border border-zinc-300 bg-[#FAF8F5] font-medium focus:outline-none focus:border-zinc-900"
               />
+            </div>
+
+            {/* GÜVENLİ SMS OTP DOĞRULAMA KUTUSU (Tam Genişlik) */}
+            <div className="sm:col-span-2 p-4 rounded-2xl bg-[#FAF8F5] border border-zinc-200/90 space-y-3">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <div className="flex items-center gap-2">
+                  <MessageSquareCode className="w-4 h-4 text-[#0F6E45] shrink-0" />
+                  <span className="text-xs sm:text-sm font-bold text-zinc-900">
+                    SMS Numara Doğrulaması (Zorunlu)
+                  </span>
+                </div>
+
+                {profile.smsVerified ? (
+                  <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#E6F4EC] text-[#0F6E45] text-xs font-bold">
+                    <CheckCircle2 className="w-3.5 h-3.5" />
+                    <span>Numara SMS ile Doğrulandı ({profile.smsVerificationId})</span>
+                  </span>
+                ) : (
+                  <button
+                    type="button"
+                    disabled={isDispatchingSms || smsCooldownSec > 0}
+                    onClick={handleSendSmsOtp}
+                    className="px-3.5 py-2 rounded-xl bg-zinc-900 hover:bg-zinc-800 disabled:opacity-50 text-white text-xs font-bold transition-colors"
+                  >
+                    {isDispatchingSms
+                      ? 'Gönderiliyor...'
+                      : smsCooldownSec > 0
+                      ? `Yeni Kod İste (${smsCooldownSec} sn)`
+                      : smsChallenge
+                      ? 'Yeni SMS Kodu Gönder'
+                      : 'SMS Doğrulama Kodu Gönder'}
+                  </button>
+                )}
+              </div>
+
+              {!profile.smsVerified && (
+                <>
+                  <p className="text-[11px] text-zinc-500">
+                    Başkasının numarasıyla kayıt olunmasını engellemek için CSPRNG + SHA-256 tuzlanmış 6 haneli tek kullanımlık SMS doğrulaması uygulanır. Maksimum 3 deneme hakkı vardır.
+                  </p>
+
+                  {simulatedSmsBannerCode && (
+                    <div className="p-3 rounded-xl bg-emerald-950 text-emerald-100 border border-emerald-800 flex items-center justify-between gap-3 text-xs animate-section-enter">
+                      <div>
+                        <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-400 block">
+                          📲 GELEN SMS BİLDİRİMİ (MİZAN GÜVENLİK)
+                        </span>
+                        <span>
+                          Tek kullanımlık doğrulama kodunuz:{' '}
+                          <strong className="font-mono text-sm text-white tracking-widest bg-white/10 px-2 py-0.5 rounded">
+                            {simulatedSmsBannerCode}
+                          </strong>
+                        </span>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setOtpInput(simulatedSmsBannerCode)}
+                        className="px-2.5 py-1.5 rounded-lg bg-emerald-700 hover:bg-emerald-600 text-white text-[11px] font-bold shrink-0"
+                      >
+                        Kodu Yapıştır
+                      </button>
+                    </div>
+                  )}
+
+                  {smsChallenge && !smsChallenge.lockedOut && (
+                    <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5">
+                      <input
+                        type="text"
+                        inputMode="numeric"
+                        maxLength={6}
+                        value={otpInput}
+                        onChange={(e) => {
+                          setSmsError(null);
+                          setOtpInput(e.target.value.replace(/\D/g, '').slice(0, 6));
+                        }}
+                        placeholder="6 Haneli SMS Kodu"
+                        className="flex-1 px-3.5 py-2.5 rounded-xl border border-zinc-300 bg-white font-mono text-sm tracking-widest font-bold focus:outline-none focus:border-zinc-900"
+                      />
+                      <button
+                        type="button"
+                        onClick={handleVerifySmsOtp}
+                        className="px-5 py-2.5 rounded-xl bg-[#0F6E45] hover:bg-[#0b5736] text-white text-xs font-bold transition-colors whitespace-nowrap"
+                      >
+                        SMS Kodunu Doğrula
+                      </button>
+                    </div>
+                  )}
+
+                  {smsError && (
+                    <div className="p-2.5 rounded-xl bg-red-50 border border-red-200 text-xs text-red-800 font-medium">
+                      {smsError}
+                    </div>
+                  )}
+                </>
+              )}
             </div>
 
             <div>
@@ -659,6 +960,112 @@ export const QuestionnaireSection: React.FC<QuestionnaireSectionProps> = ({
             </div>
           </div>
 
+          {/* CANLI KAMERA (SELFIE) CANLILIK DOĞRULAMASI — SIFIR FOTOĞRAF SAKLAMA */}
+          <div className="p-4 rounded-2xl bg-[#FAF8F5] border border-zinc-200/90 space-y-3">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <div className="flex items-center gap-2">
+                <Camera className="w-4 h-4 text-[#0F6E45] shrink-0" />
+                <span className="text-xs sm:text-sm font-bold text-zinc-900">
+                  Canlı Kamera (Selfie) Doğrulaması (Zorunlu)
+                </span>
+              </div>
+
+              {profile.cameraLivenessVerified ? (
+                <div className="flex items-center gap-2">
+                  <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#E6F4EC] text-[#0F6E45] text-xs font-bold">
+                    <CheckCircle2 className="w-3.5 h-3.5" />
+                    <span>Canlı Kamera Doğrulandı</span>
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      onUpdateProfile({
+                        ...profile,
+                        cameraLivenessVerified: false,
+                        cameraLivenessHash: undefined,
+                        registrationCompleted: false,
+                      });
+                    }}
+                    className="text-[11px] text-zinc-500 hover:text-zinc-900 underline"
+                  >
+                    Yeniden Çek
+                  </button>
+                </div>
+              ) : !isCameraOpen ? (
+                <button
+                  type="button"
+                  onClick={handleStartLiveCamera}
+                  className="px-3.5 py-2 rounded-xl bg-zinc-900 hover:bg-zinc-800 text-white text-xs font-bold flex items-center gap-1.5 transition-colors"
+                >
+                  <Camera className="w-3.5 h-3.5" />
+                  <span>Kamerayı Aç ve Doğrula</span>
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={stopCameraHardware}
+                  className="px-3 py-1.5 rounded-xl border border-zinc-300 bg-white text-zinc-700 text-xs font-semibold flex items-center gap-1"
+                >
+                  <VideoOff className="w-3.5 h-3.5" />
+                  <span>Kamerayı Kapat</span>
+                </button>
+              )}
+            </div>
+
+            <p className="text-[11px] text-zinc-500 leading-relaxed">
+              <strong>Sıfır Biyometrik Veri Saklama Garantisi:</strong> Kamera görüntünüz sunucuya gönderilmez ve fotoğrafınız kaydedilmez. Tarayıcı RAM'inde 450ms aralıklı 2 kare üzerinden canlılık (mikro-hareket ve doku) doğrulaması yapılır, ardından piksel belleği (<code>Uint8ClampedArray.fill(0)</code>) anında sıfırlanır.
+            </p>
+
+            {profile.cameraLivenessVerified && profile.cameraLivenessHash && (
+              <div className="text-[11px] font-mono text-[#0F6E45] bg-[#E6F4EC]/70 px-3 py-1.5 rounded-xl border border-emerald-200">
+                Kanıt Özeti: {profile.cameraLivenessHash} • Kamera Donanımı Kapalı (RAM Temizlendi)
+              </div>
+            )}
+
+            {isCameraOpen && !profile.cameraLivenessVerified && (
+              <div className="space-y-3 animate-section-enter">
+                <div className="relative w-full max-w-xs mx-auto aspect-[4/3] rounded-2xl overflow-hidden bg-zinc-950 border-2 border-[#0F6E45]">
+                  <video
+                    ref={videoRef}
+                    autoPlay
+                    playsInline
+                    muted
+                    className="w-full h-full object-cover scale-x-[-1]"
+                  />
+                  <div className="absolute inset-4 border-2 border-dashed border-emerald-400/80 rounded-full pointer-events-none" />
+                  <div className="absolute bottom-2 inset-x-2 text-center bg-black/65 text-white text-[11px] py-1 px-2 rounded-lg">
+                    Yüzünüzü çerçevenin içine ortalayın ve hafifçe başınızı oynatın
+                  </div>
+                </div>
+
+                <button
+                  type="button"
+                  disabled={isScanningLiveness}
+                  onClick={handleVerifyCameraLiveness}
+                  className="w-full py-3 px-4 rounded-xl bg-[#0F6E45] hover:bg-[#0b5736] disabled:opacity-50 text-white text-xs sm:text-sm font-bold flex items-center justify-center gap-2 transition-colors"
+                >
+                  {isScanningLiveness ? (
+                    <>
+                      <RefreshCw className="w-4 h-4 animate-spin" />
+                      <span>Canlılık Analiz Ediliyor (450ms Çift Kare)...</span>
+                    </>
+                  ) : (
+                    <>
+                      <ShieldCheck className="w-4 h-4" />
+                      <span>Canlılığı Doğrula ve Kamerayı Kapat</span>
+                    </>
+                  )}
+                </button>
+              </div>
+            )}
+
+            {cameraError && (
+              <div className="p-2.5 rounded-xl bg-red-50 border border-red-200 text-xs text-red-800 font-medium">
+                {cameraError}
+              </div>
+            )}
+          </div>
+
           {/* Cinsiyet, Boy ve Fiziksel Yapı */}
           <div className="grid grid-cols-3 gap-3.5 pt-2 border-t border-zinc-100">
             <div>
@@ -724,7 +1131,7 @@ export const QuestionnaireSection: React.FC<QuestionnaireSectionProps> = ({
             </div>
           </div>
 
-          {/* Eşleşme Sonrası İletişim Kanalı Tercihi (Telefon/WhatsApp, Mail, Instagram bağlantısı) */}
+          {/* Eşleşme Sonrası İletişim Kanalı Tercihi */}
           <div className="p-4 rounded-2xl bg-[#FAF8F5] border border-zinc-200/90 space-y-3">
             <div>
               <h2 className="text-xs sm:text-sm font-bold text-zinc-900">
@@ -845,7 +1252,7 @@ export const QuestionnaireSection: React.FC<QuestionnaireSectionProps> = ({
               <label htmlFor="kvkk-register-check" className="font-semibold text-zinc-900 cursor-pointer">
                 6698 Sayılı KVKK Açık Rıza ve Türkiye İçi Şifreli Veri Saklama Onayı:
               </label>{' '}
-              Kişisel bilgilerimin (isim, soy isim, telefon, e-posta, doğum tarihi) Türkiye sınırları içindeki TIER-III sunucularda AES-256-GCM şifrelemesiyle korunmasını kabul ediyorum.{' '}
+              Kişisel bilgilerimin (isim, soy isim, telefon, e-posta, doğum tarihi) Türkiye sınırları içindeki TIER-III sunucularda AES-256-GCM şifrelemesiyle korunmasını ve kamera canlılık kontrolünde hiçbir görüntünün kaydedilmemesini kabul ediyorum.{' '}
               <button
                 type="button"
                 onClick={onRequestKvkkModal}

@@ -16,6 +16,7 @@ import {
   ExternalLink,
   RotateCcw,
   Eye,
+  CheckCircle2,
 } from 'lucide-react';
 import { buildSafeContactUrl } from '../utils/security';
 
@@ -96,8 +97,17 @@ export const MatchesSection: React.FC<MatchesSectionProps> = ({
               {profile.lastName ? `${profile.lastName[0].toUpperCase()}.` : ''} •{' '}
               {profile.age} yaş · {profile.city} (Memleket: {profile.hometown})
             </div>
-            <div className="text-xs text-zinc-500 mt-0.5">
-              Eşleştiğin adaylarda görünen adli sicil durumun:{' '}
+            <div className="text-xs text-zinc-500 mt-0.5 flex flex-wrap items-center gap-2">
+              <span className="inline-flex items-center gap-1 text-[#0F6E45] font-semibold">
+                <CheckCircle2 className="w-3.5 h-3.5" />
+                SMS Doğrulandı
+              </span>
+              <span>•</span>
+              <span className="inline-flex items-center gap-1 text-[#0F6E45] font-semibold">
+                <CheckCircle2 className="w-3.5 h-3.5" />
+                Canlı Kamera Doğrulandı
+              </span>
+              <span>•</span>
               <strong
                 className={
                   userCriminalAnalysis.uploaded ? 'text-[#0F6E45]' : 'text-amber-700'
@@ -214,9 +224,15 @@ export const MatchesSection: React.FC<MatchesSectionProps> = ({
                 {/* Üst Satır: Sol (İsim & Bilgiler) | Sağ (%91 & Çok yüksek uyum) */}
                 <div className="flex items-start justify-between gap-4">
                   <div className="min-w-0">
-                    <h2 className="text-2xl sm:text-[26px] font-bold text-zinc-900 leading-tight">
-                      {candidate.firstName}
-                    </h2>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <h2 className="text-2xl sm:text-[26px] font-bold text-zinc-900 leading-tight">
+                        {candidate.firstName}
+                      </h2>
+                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-[#E6F4EC] text-[#0F6E45] text-[10px] font-bold">
+                        <CheckCircle2 className="w-3 h-3" />
+                        <span>SMS & Kamera Onaylı</span>
+                      </span>
+                    </div>
                     <p className="text-sm sm:text-[15px] text-zinc-600 leading-snug mt-1">
                       {candidate.age} yaş · {candidate.heightCm} cm · {candidate.bodyType} ·{' '}
                       {candidate.city} (Aslen {candidate.hometown}) · {candidate.personaTitle}

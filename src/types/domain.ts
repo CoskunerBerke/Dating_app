@@ -90,6 +90,10 @@ export interface UserSelfProfile {
   whatsappNumber: string;
   instagramHandle: string; // Opsiyonel (İletişim kanalı Instagram seçilmediyse)
   contactPreferenceConfirmed: boolean;
+  smsVerified: boolean; // 6 Haneli SMS OTP Doğrulaması (Zorunlu)
+  smsVerificationId?: string;
+  cameraLivenessVerified: boolean; // Canlı Kamera Selfie Doğrulaması (Zorunlu)
+  cameraLivenessHash?: string;
   registrationCompleted: boolean;
   encryptedEnvelope?: EncryptedIdentityEnvelope;
 }
@@ -173,6 +177,8 @@ export interface CandidateProfile {
   instagramHandle: string;
   emailAddress: string;
   encryptedContactHandle: string;
+  smsVerified?: boolean;
+  cameraLivenessVerified?: boolean;
   criminalRecord: {
     uploaded: boolean; // true = Yüklendi, false = Yüklenmedi
     verified: boolean;

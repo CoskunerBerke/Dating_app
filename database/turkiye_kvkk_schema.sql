@@ -58,8 +58,19 @@ CREATE TABLE IF NOT EXISTS kullanici_profilleri (
         preferred_contact_platform IN ('whatsapp', 'instagram', 'email', 'both')
     ),
     contact_preference_confirmed BOOLEAN NOT NULL DEFAULT TRUE,
+    -- SMS OTP ve Canlı Kamera (Sıfır Fotoğraf Kayıtlı) Güvenlik Kanıtları
+    sms_verified BOOLEAN NOT NULL DEFAULT TRUE,
+    sms_verification_id VARCHAR(32) NOT NULL,
+    camera_liveness_verified BOOLEAN NOT NULL DEFAULT TRUE,
+    camera_liveness_proof_hash VARCHAR(64) NOT NULL,
+    camera_raw_frames_zeroed BOOLEAN NOT NULL DEFAULT TRUE,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    CONSTRAINT chk_mandatory_sms_and_camera_verification CHECK (
+        sms_verified = TRUE AND
+        camera_liveness_verified = TRUE AND
+        camera_raw_frames_zeroed = TRUE
+    )
 );
 
 -- 3. ÖZEL NİTELİKLİ 9 SORU CEVAPLARI VE KIRMIZI KUTUCUK FİLTRELERİ TABLOSU
